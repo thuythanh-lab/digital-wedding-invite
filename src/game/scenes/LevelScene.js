@@ -55,6 +55,8 @@ const FINISH_X = 216; // little checkered finish line on the venue floor
 const TURTLE_FROM = 96; // the late turtle comes out of the pipe mouth…
 const TURTLE_STOP = 226; // …and stops just over the line, clear of Thủy (x 266)
 const POLE_X = 306;
+const BOX_X = 184; // the Surprise Box floats over the venue floor…
+const BOX_Y = YV - 90; // …just above Thủy's head (she can bump it from below)
 const HUD_H = 30; // compact HUD pill (logical units)
 const G = 34; // Thủy usually walks this far ahead of Minh
 const LAND_X = 262; // Gentle Glide touchdown on the date platform, just right of the calendar
@@ -253,7 +255,7 @@ export class LevelScene extends Phaser.Scene {
     const bLandM = M.last.b;
     M.hold(6, { pose: ['stand', 'down'], wobble: true }); // loses his balance for a moment
     M.hold(8, { adjust: true }); // straightens his jacket
-    H.holdUntil(M.last.b, { pose: ['stand', 'right'] }); // Thủy turns toward him
+    H.holdUntil(bLandM + 4, { pose: ['stand', 'right'] }); // Thủy turns toward him… and walks on
     beats.push(new Beat('gentleGlide', bGlideT - 10, M.last.b));
     Object.assign(this, { bGlideT, bLandT, bGlideM, bLandM });
     // screen 2 stop: both on the ledge by the calendar, Thủy just looking down at the drop
@@ -262,7 +264,8 @@ export class LevelScene extends Phaser.Scene {
     // ---- 2 WEDDING DATE — under the calendar Minh briefly checks the date.
     // (the calendar check now happens on screen 2, before the glide)
 
-    // ---- 3 THE SECRET PIPE — Thủy spots it and dives in; Minh peeks… and is pulled in.
+    // ---- 3 THE PIPE INSPECTION — Thủy hops straight in; Minh inspects it first…
+    // A: arrival — she spots the pipe, pauses, hops in and vanishes
     const bSpot0 = H.walkTo(D('p1', 150), null, 1.8);
     H.hold(6, { pose: ['stand', 'left'], emote: 'emoteExcl' }); // a pipe!
     const bSpot1 = H.last.b;
@@ -272,55 +275,116 @@ export class LevelScene extends Phaser.Scene {
     H.hold(5, { hop: 12, pose: ['jump', 'left'] });
     const bThuyIn = H.last.b;
     cues.push([bThuyIn, 'pipe']);
-    H.move(20, S('tube')); // whoosh down the pipe
-    H.move(12, D('tube', 112));
+    H.move(20, S('tube')); // whoosh down the pipe…
+    H.move(8, D('tube', 96)); // …and waits, hidden, in the side tube
+    // B: inspection — Minh climbs onto the rim, taps it twice, listens, looks in
     M.walkTo(D('p1', 140), null, 1.5);
     M.move(10, D('p1', 122)); // cautious
-    M.hold(6, { pose: ['stand', 'left'], emote: 'emoteQ' });
     M.holdUntil(Math.max(M.last.b + 1, bThuyIn + 2), { pose: ['stand', 'left'] });
     cues.push([M.last.b, 'jump']);
     M.move(15, E('j2'));
-    const bPeek0 = M.last.b;
-    M.hold(10, { pose: ['nod', 'down'] }); // peeks inside… (a small comedic pause)
-    M.hold(5, { pose: ['stand', 'down'], emote: 'emoteExcl' }); // …uh-oh
+    const bInsp0 = M.last.b;
+    M.hold(3, { pose: ['nod', 'down'] }); // bends a little
+    M.hold(3, { pose: ['reach', 'down'] }); // tap…
+    const bTap1 = M.last.b - 2;
+    M.hold(2, { pose: ['nod', 'down'] });
+    M.hold(3, { pose: ['reach', 'down'] }); // …tap
+    const bTap2 = M.last.b - 2;
+    M.hold(8, { pose: ['nod', 'down'], emote: 'emoteQ' }); // leans in and listens…
+    const bListen1 = M.last.b;
+    M.hold(8, { pose: ['nod', 'down'] }); // …and looks inside
+    const bRumble = M.last.b;
+    cues.push([bTap1, 'tap'], [bTap1, 'fx:tap'], [bTap2, 'tap'], [bTap2, 'fx:tap'], [bRumble, 'rumble']);
+    // C: the unexpected pull — "!", arms fly up, legs kick… gone
+    M.hold(4, { pose: ['stand', 'down'], emote: 'emoteExcl' });
     const bPull = M.last.b;
     this.bPull = bPull;
+    M.hold(2, { pose: ['offer', 'down'] }); // arms up!
     cues.push([bPull + 1, 'slide']);
-    cues.push([bPull + 3, 'whoosh']); // …and the pipe pulls him in
+    cues.push([bPull + 3, 'whoosh']);
     // ~5 units of drop per path unit: +8 ≈ 40 deep, so his legs still stick out.
-    M.move(12, S('pipe') + 8, { dive: true });
-    M.move(8, S('pipe') + 18, { dive: true });
+    M.move(8, S('pipe') + 8, { dive: true });
+    M.move(6, S('pipe') + 18, { dive: true });
+    const bGone = M.last.b;
     M.move(24, S('tube')); // the camera rides down with him
-    M.move(10, D('tube', 112));
-    M.move(6, E('tube'));
+    M.move(6, D('tube', 92)); // into the side tube (hidden)
+    const bDown = M.last.b;
+    // D: exit — Thủy pops out first and lands; Minh follows, far too high
+    H.holdUntil(bDown + 1);
+    H.move(4, D('tube', 112)); // slides out of the mouth…
+    cues.push([H.last.b, 'jump']);
+    H.move(9, D('gl', 172), { hop: 14, pose: ['jump', 'right'] }); // …hops clear and lands
+    const bThuyOut = H.last.b;
+    cues.push([bThuyOut, 'land'], [bThuyOut, 'fx:dustThuy']);
+    H.hold(3, { pose: ['stand', 'right'] });
+    M.holdUntil(bThuyOut + 3);
+    M.move(4, E('tube'));
     cues.push([M.last.b, 'jump']);
     M.hold(10, { hop: 34, pose: ['jump', 'right'] }); // pops out much higher than expected…
-    M.hold(3, { pose: ['stand', 'right'] }); // …and lands beside her
-    const bMinhOut = M.last.b;
+    const bMinhOut = M.last.b; // …and lands with a puff of dust
+    cues.push([bMinhOut, 'land'], [bMinhOut, 'fx:dustMinh']);
+    H.holdUntil(bMinhOut, { pose: ['stand', 'left'] }); // she turns to look at him
+    M.hold(5, { pose: ['stand', 'down'], wobble: true, emote: 'emoteSweat' }); // a bit dishevelled
+    M.hold(11, { adjust: true }); // straightens his jacket
+    const bSuit1 = M.last.b;
     beats.push(new Beat('secretPipe', bThuyIn - 50, bMinhOut));
-    Object.assign(this, { bThuyIn, bMinhOut });
+    Object.assign(this, { bThuyIn, bMinhOut, bTap1, bTap2, bGone });
 
-    // ---- 4 VENUE — Thủy fixes a crooked flower, Minh straightens his suit.
-    H.walkTo(D('gl', 188));
-    H.holdUntil(bMinhOut, { pose: ['stand', 'right'] }); // waits for him
+    // ---- 4 THE SURPRISE BOX — Thủy bumps a mystery block: out pops the invitation (11:00)
+    // A: discovery (overlaps Minh's jacket fix)
+    M.walkTo(D('gl', 148), null, 1.6); // Minh steps up beside her
+    const bMinhThere = M.last.b;
+    H.hold(4, { pose: ['stand', 'left'] });
+    H.walkTo(D('gl', BOX_X), null, 1.2); // walks on… right under the block
+    H.holdUntil(bMinhThere - 4, { face: 'right' });
+    H.hold(7, { pose: ['stand', 'up'], emote: 'emoteQ' }); // looks up: ?
+    const bBoxSeen = H.last.b;
+    M.holdUntil(bBoxSeen - 3, { pose: ['stand', 'right'] });
+    M.holdUntil(bBoxSeen, { pose: ['stand', 'up'] }); // Minh turns toward the block too
+    // B: the jump — a little crouch, then up she goes and bumps it from below
+    H.hold(3, { pose: ['nod', 'down'] }); // crouch
+    const bJump0 = H.last.b;
+    H.hold(10, { hop: 22, pose: ['jump', 'down'] }); // veil and dress flare
+    const bHit = bJump0 + 5; // the top of the arc
+    H.hold(3, { pose: ['stand', 'down'] }); // lands back on the floor
+    cues.push([bJump0, 'jump'], [bHit, 'bump'], [bHit + 0.5, 'pop'], [bHit + 7, 'chime'], [bJump0 + 10, 'land']);
+    // C: the surprise — a little card pops out, spins, sparkles, opens up: 11:00 · TIỆC CƯỚI
+    const bSign = bHit + 13; // fully open and readable from here
+    // D: Minh's reaction — out comes the notebook: he double-checks what she just found
+    M.holdUntil(bHit + 9, { pose: ['stand', 'up'] });
+    M.hold(4, { pose: ['stand', 'down'], prop: 'notebook' }); // notebook out
+    M.hold(6, { pose: ['nod', 'down'], prop: 'notebook' }); // checks it…
+    M.hold(5, { pose: ['stand', 'up'], prop: 'notebook' }); // …looks at the card
+    M.hold(4, { pose: ['nod', 'down'], prop: 'notebook' }); // approving nod
+    M.hold(7, { pose: ['stand', 'down'], prop: 'notebook', emote: 'emoteCheck' }); // ✓
+    const bChecked = M.last.b - 6;
+    cues.push([bChecked, 'check']);
+    H.holdUntil(bChecked, { face: 'down' });
+    H.hold(6, { pose: ['stand', 'left'] }); // she glances at him…
+    const bSign1 = Math.max(H.last.b, M.last.b); // the card hands over to the info card
+    const bF1 = bSign1 + 6; // …and both are back to idle
+    H.holdUntil(bF1, { face: 'down' });
+    M.holdUntil(bF1, { face: 'down' });
+    beats.push(new Beat('surpriseBox', bSuit1 - 8, bF1));
+    Object.assign(this, { bBoxSeen, bJump0, bHit, bSign, bSign1, bF1 });
+
+    // ---- 5 FLOWER — on the way to the RSVP spot Thủy fixes a crooked flower
+    H.walkTo(D('gl', 188), null, 1.0);
     H.hold(6, { pose: ['stand', 'right'], emote: 'emoteExcl' }); // notices the crooked flower
     const bFix0 = H.last.b;
     H.hold(14, { pose: ['reach', 'down'] }); // straightens it
     const bFix1 = H.last.b;
     H.move(5, D('gl', 180), { pose: ['stand', 'right'] }); // steps back…
     H.hold(8, { pose: ['stand', 'right'], emote: 'emoteHeart' }); // …inspects it: perfect
-    M.hold(5, { pose: ['stand', 'right'] });
-    M.hold(12, { adjust: true }); // meanwhile Minh straightens his suit
-    M.hold(4, { pose: ['stand', 'right'] });
-    const bF1 = Math.max(H.last.b, M.last.b);
-    H.holdUntil(bF1, { pose: ['stand', 'right'] });
-    M.holdUntil(bF1, { pose: ['stand', 'right'] });
+    const bFlowerDone = H.last.b;
+    M.holdUntil(bFix0, { face: 'down' });
+    M.holdUntil(bFlowerDone, { pose: ['stand', 'right'] }); // watches her
     cues.push([bFix0 + 2, 'flowerFix']);
-    beats.push(new Beat('venue', bMinhOut, bF1));
-    Object.assign(this, { bFix0, bFix1, bF1 });
+    beats.push(new Beat('venue', bF1, bFlowerDone));
+    Object.assign(this, { bFix0, bFix1, bFlowerDone });
 
     // ---- 5 RSVP gate on the same floor (Minh x 200, Thủy x 236, both facing the guest)
-    const bGate = Math.max(H.walkTo(D('gl', 236), null, 1.6), M.walkTo(D('gl', 200), null, 1.6));
+    const bGate = Math.max(H.walkTo(D('gl', 236), null, 1.6), M.walkTo(D('gl', 200), null, 1.4));
     const bR = bGate + 8;
     M.holdUntil(bR, { face: 'down' });
     H.holdUntil(bR, { face: 'down' });
@@ -364,40 +428,56 @@ export class LevelScene extends Phaser.Scene {
     const T = []; let tb = 0;
     const seg = (b1, ms) => { if (b1 > tb + 1e-6) { T.push([tb, b1, ms]); tb = b1; } };
     const pace = (b1, msPerB) => seg(b1, (b1 - tb) * msPerB);
-    // page 1 -> 2: the late groom
-    seg(14, 600); // Thủy sets off; Minh reads his notebook
-    seg(24, 700); // …ticks the date ✓
-    seg(31, 650); // looks up: she has gone!
-    seg(this.bDate, 1100); // runs after her; Thủy reaches the ledge and looks down
-    // page 2 -> 3: Gentle Glide · Secret Pipe · flower & suit
-    seg(bLandT, 1500); // Thủy hops off and floats down; Minh hesitates at the edge
-    seg(bLandM, 1000); // Minh follows, arms out
-    seg(bLandM + 14, 650); // wobbles, straightens his jacket
-    pace(bSpot0, 17); // Thủy walks on
-    seg(bSpot1, 550); // a pipe!
-    pace(bThuyIn, 20); // runs and hops in
-    pace(bPeek0, 24); // she whooshes down; Minh climbs up after her
-    seg(bPeek0 + 10, 700); // he peeks inside…
-    seg(bPull, 450); // …uh-oh (pause)
-    seg(bPull + 20, 600); // the pipe pulls him in, legs kicking
-    seg(bMinhOut - 13, 600); // down the tube
-    seg(bMinhOut, 600); // pops out far too high, lands beside her
-    seg(this.bFix0, 500); // she notices the crooked flower
+    // page 1 -> 2: opening interaction incl. Minh's calendar check (≈ 3.75 s)
+    seg(14, 800); // Thủy sets off; Minh reads his notebook
+    seg(24, 900); // …ticks the date in it ✓
+    seg(31, 800); // looks up: she has gone!
+    seg(this.bDate, 1250); // runs after her; Thủy reaches the ledge and looks down
+    // page 2 -> 3: Gentle Glide → Pipe Inspection → Surprise Box (one flowing scene)
+    seg(bLandT, 1800); // Thủy hops off and floats down; Minh hesitates at the edge
+    seg(bLandM, 1250); // Minh follows, arms out
+    seg(bLandM + 4, 300); // lands, wobbles…
+    pace(bSpot0, 13); // …while Thủy already walks on
+    seg(bSpot1, 500); // a pipe!
+    pace(bThuyIn, 18); // runs and hops straight in
+    pace(bInsp0, 11); // Minh hurries over and climbs up after her
+    seg(bInsp0 + 3, 250); // bends
+    seg(bTap1 + 2, 280); // tap
+    seg(bTap2 - 1 + 0.001, 200);
+    seg(bTap2 + 2, 280); // tap
+    seg(bListen1, 600); // leans in and listens…
+    seg(bRumble, 500); // …looks inside
+    seg(bPull, 330); // rumble — "!"
+    seg(bPull + 2, 120); // arms up
+    seg(bGone, 330); // gone!
+    seg(bDown, 400); // rides down the pipe (camera follows)
+    seg(bThuyOut, 450); // Thủy pops out first and lands
+    seg(bMinhOut, 600); // Minh pops out far too high… lands
+    seg(bMinhOut + 5, 300); // dishevelled wobble
+    seg(this.bBoxSeen - 7, 550); // jacket fix · she walks under the block
+    seg(this.bBoxSeen, 550); // she looks up: ?
+    seg(this.bJump0, 250); // crouch
+    seg(this.bHit, 300); // jumps… bump!
+    seg(this.bHit + 5, 450); // lands · a card pops out
+    seg(this.bSign, 800); // spins, sparkles, opens up: 11:00 · TIỆC CƯỚI
+    seg(this.bSign1, 1350); // Minh double-checks it in his notebook ✓, she glances at him
+    seg(this.bF1, 400); // the card settles into the info card; idle
+    // page 3 -> 4: the flower, then the RSVP spot
+    seg(this.bFix0, 900); // walks on, notices the crooked flower
     seg(this.bFix1, 850); // straightens it
     seg(this.bFix1 + 5, 350); // steps back
-    seg(this.bF1, 750); // inspects it: perfect (settles on the venue card)
-    // page 3 -> 4: walk to the RSVP spot
-    pace(bR, 26);
+    seg(this.bFlowerDone, 700); // inspects it: perfect
+    pace(bR, 24); // both walk to their RSVP spots
     // after the RSVP: finish line and the late turtle
-    seg(bR + 30, 550); // Minh dashes to the flag
-    seg(bR + 44, 600); // victory jump
-    seg(bR + 54, 500); // Thủy notices the flag is crooked
-    seg(bFlag0, 350); // walks over
-    seg(bFlag1, 700); // straightens it
-    seg(bTogether, 350); // pause
-    seg(bTogether + 18, 500); // they celebrate together
+    seg(bR + 30, 600); // Minh dashes to the flag
+    seg(bR + 44, 650); // victory jump
+    seg(bR + 54, 550); // Thủy notices the flag is crooked
+    seg(bFlag0, 400); // walks over
+    seg(bFlag1, 750); // straightens it
+    seg(bTogether, 400); // pause
+    seg(bTogether + 18, 550); // they celebrate together
     seg(bTurtle0, 450); // wave to the guest… and wait
-    seg(bTurtle1, 1300); // the turtle finally waddles across the line
+    seg(bTurtle1, 1500); // the turtle finally waddles across the line
     seg(bEnd, 150);
     this.timing = T;
 
@@ -551,6 +631,20 @@ export class LevelScene extends Phaser.Scene {
     this.swayers.push(this.img(176, YV + 1, 'flowers', DEPTH.front)); // photo coin 2 peeks out behind these, at the tree's foot
     this.butterfly = this.add.image(240, YV - 70, 'fly0').setScale(ART).setDepth(DEPTH.fx);
     this.venueCard = fillInfoCard(document.getElementById('venue-card'));
+    // the Surprise Box (an original mystery block, not any game's artwork)
+    this.box = this.add.image(BOX_X, BOX_Y, 'mysteryBlock').setScale(ART).setDepth(DEPTH.props + 2);
+    this.boxCard = this.add.image(BOX_X, BOX_Y - 12, 'inviteCard').setScale(ART).setDepth(DEPTH.props + 1).setVisible(false);
+    this.boxSparks = [[-30, -8], [28, -16], [-18, -34], [22, 4]].map(([dx, dy]) =>
+      this.add.image(BOX_X + dx, BOX_Y - 40 + dy, 'sparkle').setScale(ART).setDepth(DEPTH.fx).setVisible(false));
+    const sg = this.add.graphics();
+    sg.fillStyle(0x3b2620).fillRect(-50, -32, 100, 64);
+    sg.fillStyle(0xf8f0dd).fillRect(-48, -30, 96, 60);
+    sg.fillStyle(0xc8704e).fillRect(-48, -30, 96, 14);
+    sg.fillStyle(0xe6d7b8).fillRect(-48, 26, 96, 4);
+    const sTag = makeText(this, 0, -23, WEDDING.eventName, { fontFamily: FONT_BODY, fontSize: '15px', color: '#fff7e6' }).setOrigin(0.5, 0.5);
+    const sTime = makeText(this, 0, 7, WEDDING.time, { fontFamily: FONT_TITLE, fontSize: '34px', color: '#3b2620' }).setOrigin(0.5, 0.5);
+    this.texts.push(sTag, sTime);
+    this.boxSign = this.add.container(BOX_X, BOX_Y - 66, [sg, sTag, sTime]).setDepth(DEPTH.fx + 1).setVisible(false);
     this.cardTag = this.venueCard.querySelector('.ic-tag');
 
     // ===================== 5 RSVP + FINISH — same floor, right-hand end
@@ -1062,10 +1156,16 @@ export class LevelScene extends Phaser.Scene {
     const el = this.venueCard;
     const k = this.layout.cssToLogical;
     const yCss = (this.cardWorldY - this.cameras.main.scrollY) / k;
-    const fade = ramp(b, this.bMinhOut - 14, this.bMinhOut + 4);
+    const fade = ramp(b, this.bSign1, this.bF1); // the box's little card becomes the info card
     const show = fade > 0 && yCss > -this.cardH && yCss < this.layout.cssH;
     if (el.hidden === show) el.hidden = !show;
-    if (!show) return;
+    if (!show) { this._cardShown = false; return; }
+    // the time line glows once when the card first appears out of the box
+    if (!this._cardShown && fade < 1 && !this.quietJump) {
+      const t = el.querySelector('.ic-time');
+      t?.classList.remove('is-fresh'); void t?.offsetWidth; t?.classList.add('is-fresh');
+    }
+    this._cardShown = true;
     el.style.opacity = String(fade);
     el.style.transform = `translate(-50%, ${Math.round(yCss)}px)`;
     // after a confirmed RSVP the tag on the card carries the answer
@@ -1146,9 +1246,10 @@ export class LevelScene extends Phaser.Scene {
     this.driveChar(this.thuy, dT, eT, delta, gate);
 
     // ---------------- environment linked to progress
+    this.drawSurpriseBox(b);
     const fr = ramp(b, this.bFix0 + 2, this.bFix1 - 2);
     this.tallFlower.setRotation((1 - fr) * 0.5);
-    this.flowerSparkle.setVisible(b > this.bFix1 && b < this.bF1 + 4 && Math.floor(this.time.now / 160) % 2 === 0);
+    this.flowerSparkle.setVisible(b > this.bFix1 && b < this.bFlowerDone + 4 && Math.floor(this.time.now / 160) % 2 === 0);
     const fl = ramp(b, this.bFlag0 + 2, this.bFlag1 - 2);
     this.flag.setRotation((1 - fl) * -0.45); // droops until Thủy straightens it
     // finish turtle: waddles out of the pipe mouth after everyone has celebrated
@@ -1175,7 +1276,8 @@ export class LevelScene extends Phaser.Scene {
     if (forward && !this.quietJump) {
       this.cues.forEach(([cb, name]) => {
         if (this.prevB < cb && b >= cb) {
-          if (name === 'victory' && this.answer?.attending === false) this.sfx('gentle');
+          if (name.startsWith('fx:')) this.fxCue(name.slice(3));
+          else if (name === 'victory' && this.answer?.attending === false) this.sfx('gentle');
           else this.sfx(name);
         }
       });
@@ -1379,6 +1481,44 @@ export class LevelScene extends Phaser.Scene {
     if (this.reducedMotion) return;
     img.setScale(ART * 0.4);
     this.tweens.add({ targets: img, scale: ART, duration: 180, ease: 'Back.easeOut' });
+  }
+
+  /**
+   * The Surprise Box as a pure function of progress: bump → card pops out,
+   * spins and sparkles → opens into a readable sign (11:00 · TIỆC CƯỚI) →
+   * hands over to the venue info card. The block stays "used" afterwards.
+   */
+  drawSurpriseBox(b) {
+    const h = this.bHit;
+    const bump = ramp(b, h, h + 3);
+    this.box.y = BOX_Y - Math.round(Math.sin(Math.PI * bump) * 5);
+    const used = b >= h;
+    if (this._boxUsed !== used) { this._boxUsed = used; this.box.setTexture(used ? 'mysteryUsed' : 'mysteryBlock'); }
+    const rise = smooth(ramp(b, h + 0.5, h + 6));
+    const open = smooth(ramp(b, h + 8, this.bSign));
+    const out = ramp(b, this.bSign1, this.bF1);
+    const card = this.boxCard;
+    card.setVisible(rise > 0 && open < 1);
+    if (card.visible) {
+      card.y = BOX_Y - 12 - rise * 40;
+      card.setRotation((this.reducedMotion ? 0 : Math.sin(rise * Math.PI * 2) * 0.35) * (1 - open));
+      card.setAlpha(1 - open);
+    }
+    const spark = b > h + 5 && b < this.bSign + 2;
+    this.boxSparks.forEach((sp, i) => sp.setVisible(spark && Math.floor(this.time.now / 140 + i) % 2 === 0));
+    const sign = this.boxSign;
+    sign.setVisible(open > 0 && out < 1);
+    if (sign.visible) {
+      sign.setScale(0.25 + 0.75 * open);
+      sign.setAlpha(Math.min(1, open * 1.6) * (1 - out));
+    }
+  }
+
+  /** One-shot visual cues on the timeline (played forward only, never when skipping). */
+  fxCue(name) {
+    if (name === 'dustMinh') this.burst(this.minh.x, this.minh.y - 2, 'dust', 6);
+    if (name === 'dustThuy') this.burst(this.thuy.x, this.thuy.y - 2, 'dust', 4);
+    if (name === 'tap') this.burst(PIPE_X + 16, PIPE_TOP + 4, 'sparkle', 3); // knock, knock
   }
 
   burst(x, y, key, n, hud = false) {

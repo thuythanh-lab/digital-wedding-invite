@@ -659,6 +659,12 @@ body.is-framed #frame {
   will-change: transform, opacity;
 }
 #venue-card[hidden] { display: none; }
+#venue-card .ic-time.is-fresh { animation: ic-fresh 1.4s ease-out 1; }
+@keyframes ic-fresh {
+  0% { background: rgba(236, 201, 106, 0.75); }
+  100% { background: rgba(236, 201, 106, 0); }
+}
+@media (prefers-reduced-motion: reduce) { #venue-card .ic-time.is-fresh { animation: none; } }
 #venue-card .ic-map { pointer-events: auto; }
 
 /* short phones: tighter, still never below 16px for the facts */

@@ -385,6 +385,14 @@ class SoundManager {
         tone(196, 0, 0.08, volume * 0.18, 'square');
         tone(147, 0.05, 0.1, volume * 0.14, 'square');
         break;
+      case 'tap': // knuckle on a metal pipe: a short, hollow "tock"
+        tone(620, 0, 0.05, volume * 0.16, 'square');
+        tone(310, 0.01, 0.07, volume * 0.12, 'triangle');
+        break;
+      case 'rumble': { // the pipe stirs: low wobble
+        [[98, 0], [87.31, 0.09], [98, 0.18], [82.41, 0.27]].forEach(([f, s0]) => tone(f, s0, 0.12, volume * 0.16, 'square'));
+        break;
+      }
       case 'check':
         tone(987.77, 0, 0.08, volume * 0.12, 'square');
         tone(1318.5, 0.08, 0.18, volume * 0.12, 'square');

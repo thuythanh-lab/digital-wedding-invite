@@ -191,6 +191,27 @@ export function createLevelArt(scene) {
   });
   canvasTex(scene, 'dust', 4, 4, ({ r }) => { r(1, 0, 2, 4, PAL.ivory); r(0, 1, 4, 2, PAL.ivory); });
 
+  // Surprise Box — an original wedding "mystery block": rose tile, gold studs,
+  // a little ivory question mark; once bumped it turns into a plain warm tile
+  // with a tiny heart. (Deliberately not modelled on any game's block art.)
+  canvasTex(scene, 'mysteryBlock', 12, 12, ({ r }) => {
+    r(0, 0, 12, 12, PAL.ink);
+    r(1, 1, 10, 10, PAL.terraLight); r(1, 1, 10, 1, PAL.rose); r(1, 10, 10, 1, PAL.terraDark);
+    r(1, 1, 1, 1, PAL.goldLight); r(10, 1, 1, 1, PAL.goldLight); r(1, 10, 1, 1, PAL.goldLight); r(10, 10, 1, 1, PAL.goldLight);
+    r(4, 3, 4, 1, PAL.ivory); r(7, 4, 1, 2, PAL.ivory); r(5, 6, 2, 1, PAL.ivory); r(5, 8, 2, 1, PAL.ivory);
+  });
+  canvasTex(scene, 'mysteryUsed', 12, 12, ({ r }) => {
+    r(0, 0, 12, 12, PAL.ink);
+    r(1, 1, 10, 10, PAL.terraDark); r(1, 1, 10, 1, PAL.terracotta);
+    r(1, 1, 1, 1, PAL.goldDark); r(10, 1, 1, 1, PAL.goldDark); r(1, 10, 1, 1, PAL.goldDark); r(10, 10, 1, 1, PAL.goldDark);
+    r(4, 5, 1, 1, PAL.rose); r(7, 5, 1, 1, PAL.rose); r(4, 6, 4, 1, PAL.rose); r(5, 7, 2, 1, PAL.rose);
+  });
+  // tiny invitation card that pops out of it (rose band, gold seal)
+  canvasTex(scene, 'inviteCard', 11, 8, ({ r }) => {
+    r(0, 0, 11, 8, PAL.ink);
+    r(1, 1, 9, 6, PAL.ivory); r(1, 1, 9, 2, PAL.terracotta); r(5, 4, 1, 1, PAL.goldLight); r(3, 5, 5, 1, PAL.ivoryShade);
+  });
+
   // ---------------------------------------------------------------- props
   // Little desk calendar on a post (page reads "24").
   canvasTex(scene, 'calendar', 14, 30, ({ r }) => {
