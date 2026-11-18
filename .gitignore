@@ -1,0 +1,15 @@
+node_modules/
+dist/
+assets-extracted/
+assets-source/
+*.log
+rsvp-data/
+
+# Dev-only third-party art (old story preview scenes): licence forbids redistributing
+# the raw files — kept locally, never published (also removed from dist/ at build).
+public/assets/images/fantasy-lands/
+public/assets/images/kenney-dungeon/
+public/assets/licenses/fantasy-lands-LICENSE.txt
+# local environment overrides
+.env.local
+.env.*.local

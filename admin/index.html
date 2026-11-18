@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Quản lý thiệp cưới · Minh &amp; Thủy</title>
+  </head>
+  <body>
+    <!--
+      LOCAL-ONLY admin page (served by `bun run dev` at http://localhost:5174/admin/).
+      It is NOT part of the production build, so the guest list is never published.
+      The guest list is kept in this browser's localStorage — export CSV to back it up.
+    -->
+    <main class="adm">
+      <header class="adm-head">
+        <h1>QUẢN LÝ THIỆP CƯỚI</h1>
+        <p class="sub">MINH &amp; THỦY — 24.12.2026</p>
+        <p class="local-warn" id="local-warn" hidden>
+          ⚠ Trang quản lý chỉ nên mở trên máy tính của bạn (localhost). Đừng đưa trang này lên website.
+        </p>
+      </header>
+
+      <!-- 1 · production site -->
+      <section class="card">
+        <label class="lbl" for="base-url">ĐƯỜNG DẪN WEBSITE THIỆP CƯỚI</label>
+        <div class="row">
+          <input id="base-url" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+                 placeholder="Ví dụ: https://ten-ban.github.io/thiep-cuoi/" />
+          <button type="button" class="btn ghost" id="base-save">LƯU</button>
+        </div>
+        <p class="hint" id="base-msg">Địa chỉ website thật của thiệp (không phải localhost). Link gửi khách sẽ dùng địa chỉ này.</p>
+      </section>
+
+      <!-- 2 · new personal link -->
+      <section class="card">
+        <label class="lbl" for="guest-name">TÊN KHÁCH MỜI</label>
+        <form class="row" id="guest-form" autocomplete="off">
+          <input id="guest-name" type="text" maxlength="60" placeholder="Ví dụ: Anh Tuấn, Chị Lan, Cô Mai..." />
+          <button type="submit" class="btn primary" id="make-link">TẠO LINK</button>
+        </form>
+        <p class="hint" id="guest-msg">Tên hiện đúng như bạn gõ (giữ dấu, chữ hoa), không tự thêm danh xưng.</p>
+
+        <!-- 3 · the link just made -->
+        <div class="result" id="result" hidden>
+          <p class="lbl">LINK THIỆP CƯỚI</p>
+          <p class="result-name" id="result-name"></p>
+          <code class="url" id="result-url"></code>
+          <div class="row btns">
+            <button type="button" class="btn primary" id="result-copy">SAO CHÉP LINK</button>
+            <button type="button" class="btn ghost" id="result-preview">XEM TRƯỚC</button>
+            <span class="toast" id="result-toast" role="status" aria-live="polite"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 · generic link -->
+      <section class="card">
+        <p class="lbl">LINK THIỆP CHUNG</p>
+        <p class="hint">Cho khách không ghi tên: thiệp chào “BẠN SẴN SÀNG CHƯA?” và khách tự nhập tên khi trả lời.</p>
+        <code class="url" id="generic-url"></code>
+        <div class="row btns">
+          <button type="button" class="btn primary" id="generic-copy">SAO CHÉP LINK CHUNG</button>
+          <button type="button" class="btn ghost" id="generic-preview">XEM TRƯỚC</button>
+          <span class="toast" id="generic-toast" role="status" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <!-- 5 · list -->
+      <section class="card">
+        <div class="list-head">
+          <p class="lbl">DANH SÁCH KHÁCH ĐÃ TẠO <span class="count" id="count"></span></p>
+          <div class="row">
+            <input id="search" type="search" placeholder="Tìm theo tên..." aria-label="Tìm theo tên khách" />
+            <button type="button" class="btn ghost" id="export">XUẤT CSV</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="list">
+            <thead>
+              <tr><th>Tên khách</th><th>Mã khách</th><th>Link thiệp</th><th class="act">Thao tác</th></tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="empty">Chưa có khách nào. Nhập tên ở trên rồi bấm TẠO LINK.</p>
+        <p class="hint note">
+          Danh sách chỉ lưu trong trình duyệt này — không phải cơ sở dữ liệu chung, và sẽ mất nếu xoá dữ liệu trình duyệt.
+          Hãy bấm <b>XUẤT CSV</b> để sao lưu.<br />
+          Mã khách giúp nhận ra câu trả lời của từng người; nó không ngăn được việc chuyển tiếp hay sao chép link.
+        </p>
+      </section>
+    </main>
+    <script type="module" src="./admin.js"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "the-story-yet-untold",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "@fontsource/be-vietnam-pro": "^5.3.0",
+    "@fontsource/handjet": "^5.3.1",
+    "@fontsource/vt323": "^5.3.0",
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "lamejs": "^1.2.1",
+    "vite": "6"
+  }
+}
