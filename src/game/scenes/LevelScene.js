@@ -17,6 +17,7 @@ import { RsvpDialog } from '../mario/RsvpDialog.js';
 import { PhotoBook } from '../mario/Photos.js';
 import { fillInfoCard, QuickView } from '../mario/InfoCard.js';
 import { TitleIntro } from '../mario/TitleIntro.js';
+import { ScrollPace } from '../mario/ScrollPace.js';
 import { readGuest, savedRsvp } from '../mario/rsvp.js';
 import { showMusicToggle } from '../ui/MusicToggle.js';
 
@@ -35,7 +36,7 @@ import { showMusicToggle } from '../ui/MusicToggle.js';
 
 // ------------------------------------------------------------------ layout (world units; 1 art px = 2 units)
 const ART = 2;
-const K = 1.6; // CSS px of scrolling per progress unit (lower = a shorter journey)
+// Scroll ↔ progress mapping: per-section, motion-calibrated (see buildPace / ScrollPace.js).
 const Y0 = 500; // opening
 const Y1 = 860; // date platform (pipe entrance)
 const YV = Y1 + 560; // venue floor (pipe exit) — also the RSVP + finish floor
@@ -153,6 +154,12 @@ export class LevelScene extends Phaser.Scene {
       onConfirmed: (rec) => this.onRsvpConfirmed(rec),
     });
     this.layoutFinal();
+    this.buildPace();
+    this.updateScrollLength();
+    // development-only pacing overlay (dev server + ?pace); removed from production builds
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('pace')) {
+      import('../dev/PaceDebug.js').then(({ PaceDebug }) => { this.paceDebug = new PaceDebug(this); });
+    }
     this.photos = new PhotoBook({ scroller: this.scroller, onChange: (n) => this.setPhotoHud(n) });
     this.buildPhotoCoins();
     this.setPhotoHud(this.photos.count);
@@ -245,6 +252,7 @@ export class LevelScene extends Phaser.Scene {
     M.hold(5, { pose: ['stand', 'up'] });
     M.hold(8, { pose: ['stand', 'up'], emote: 'emoteCheck' });
     beats.push(new Beat('calendarCheck', bCal, M.last.b));
+    this.bCalEnd = M.last.b;
 
     // ---- 3 THE SECRET PIPE — Thủy spots it and dives in; Minh peeks… and is pulled in.
     H.walkTo(D('p1', 150), null, 1.8);
@@ -764,8 +772,50 @@ export class LevelScene extends Phaser.Scene {
   }
 
   // ================================================================ RSVP / ending
+  /** Scroll position (CSS px) for progress b. */
+  pxAt(b) { return this.pace ? this.pace.pxAt(b) : b * 1.6; }
+
   updateScrollLength() {
-    this.scroller.setLength((this.answer ? this.bEnd : this.bR) * K);
+    this.scroller.setLength(this.pxAt(this.answer ? this.bEnd : this.bR));
+  }
+
+  /**
+   * Per-section scroll budgets, in "screens" of this phone (fixed at load).
+   * 'move' sections flow quickly; 'info' sections give reading time. Inside each
+   * section scroll follows what actually moves on screen (ScrollPace.js).
+   */
+  buildPace() {
+    const screenPx = Phaser.Math.Clamp(this.layout.cssH, 560, 900);
+    const sections = [
+      { id: 'opening', label: '1 Opening run', kind: 'move', b0: 0, b1: this.bGlideT - 6, screens: 0.42 },
+      { id: 'glide', label: '2 Gentle Glide', kind: 'move', b0: this.bGlideT - 6, b1: this.bLandM + 14, screens: 0.62 },
+      { id: 'calendar', label: '3 Wedding calendar', kind: 'info', b0: this.bLandM + 14, b1: this.bCalEnd, screens: 0.36 },
+      { id: 'pipe', label: '4 Secret Pipe', kind: 'move', b0: this.bCalEnd, b1: this.bMinhOut, screens: 0.85 },
+      { id: 'venue', label: '5 Seasons venue', kind: 'info', b0: this.bMinhOut, b1: this.bF1, screens: 0.22 },
+      { id: 'rsvp', label: '6 To the RSVP', kind: 'info', b0: this.bF1, b1: this.bR, screens: 0.32 },
+      { id: 'finish', label: '7 Finish line', kind: 'move', b0: this.bR, b1: this.bEnd, screens: 0.6 },
+    ];
+    // on-screen motion between two progress values: camera travel and each
+    // character's travel on the screen (logical units), from the pure level state
+    const cam = this.cameras.main;
+    const snap = (b) => {
+      this.render(b, 16, true);
+      const top = cam.scrollY;
+      const pT = this.path.at(this.H.eval(b).d); const pM = this.path.at(Math.max(0, this.M.eval(b).d));
+      return { top, tx: pT.x, ty: pT.y - top, mx: pM.x, my: pM.y - top };
+    };
+    let last = null; let lastB = -1;
+    const motionAt = (b0, b1) => {
+      const a = lastB === b0 ? last : snap(b0);
+      const c = snap(b1);
+      last = c; lastB = b1;
+      return Math.max(Math.abs(c.top - a.top), Math.hypot(c.tx - a.tx, c.ty - a.ty), Math.hypot(c.mx - a.mx, c.my - a.my));
+    };
+    const keep = cam.scrollY;
+    this.pace = new ScrollPace({ sections, motionAt, screenPx });
+    this.paceScreenPx = screenPx;
+    cam.scrollY = keep;
+    this.render(this.b || 0, 16, true);
   }
 
   /** Called only after the backend confirmed. From the quick view (quiet) the game keeps its place. */
@@ -774,7 +824,7 @@ export class LevelScene extends Phaser.Scene {
     soundManager.sfx('confirm');
     this.updateScrollLength();
     if (quiet || !this.introDone) return;
-    this.time.delayedCall(350, () => this.scroller.animateTo(this.bEnd * K, this.reducedMotion ? 0 : 4500));
+    this.time.delayedCall(350, () => this.scroller.animateTo(this.pxAt(this.bEnd), this.reducedMotion ? 0 : 4500));
   }
 
   setupEndActions() {
@@ -801,7 +851,7 @@ export class LevelScene extends Phaser.Scene {
       soundManager.sfx('select');
       this.answer = null;
       this.updateScrollLength();
-      this.scroller.animateTo(this.bR * K, 0);
+      this.scroller.animateTo(this.pxAt(this.bR), 0);
     });
   }
 
@@ -871,12 +921,13 @@ export class LevelScene extends Phaser.Scene {
   update(time, delta) {
     if (this.introDone) {
       const maxB = this.answer ? this.bEnd : this.bR;
-      const target = Math.min(maxB, Math.max(0, this.scroller.value / K));
+      const target = Math.min(maxB, Math.max(0, this.pace.bAt(this.scroller.value)));
       const tau = this.reducedMotion ? 0 : 70;
       const k = tau ? 1 - Math.exp(-Math.min(delta, 100) / tau) : 1;
       this.b += (target - this.b) * k;
       if (Math.abs(target - this.b) < 0.05) this.b = target;
       this.render(this.b, delta, false);
+      this.paceDebug?.update(time);
     } else this.intro?.update(time);
     this.ambient(time);
   }
