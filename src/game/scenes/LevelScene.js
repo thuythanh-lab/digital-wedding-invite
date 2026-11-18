@@ -221,13 +221,15 @@ export class LevelScene extends Phaser.Scene {
     // (screen 2) Thủy runs ahead; Minh stops to check his calendar — ✓ — and catches up
     M.hold(14, { pose: ['stand', 'down'], prop: 'notebook' });
     M.hold(10, { pose: ['stand', 'down'], prop: 'notebook', emote: 'emoteCheck' });
+    M.hold(7, { pose: ['stand', 'right'], emote: 'emoteExcl' }); // looks up... she has gone!
     cues.push([16, 'check']);
-    M.key(62, D('p0', 244)); // hurries after her
-    beats.push(new Beat('lateGroom', 0, 62));
+    M.key(68, D('p0', 244)); // hurries after her
+    beats.push(new Beat('lateGroom', 0, 68));
 
     // ---- THE GENTLE GLIDE (scroll-driven: every pose below is a pure function of b)
     // A: Thủy reaches the ledge, looks down… and hops off; her veil catches the breeze.
-    this.bLedgeT = H.walkTo(S('gd'), null, 1.5);
+    H.walkTo(D('p0', 238), null, 2.2); // sets off briskly while he is still reading
+    this.bLedgeT = H.walkTo(S('gd'), null, 1.0); // …then strolls to the edge as he catches up
     H.hold(5, { pose: ['nod', 'down'] }); // looks down
     const bGlideT = H.last.b;
     cues.push([bGlideT + 1, 'jump']);
@@ -261,8 +263,9 @@ export class LevelScene extends Phaser.Scene {
     // (the calendar check now happens on screen 2, before the glide)
 
     // ---- 3 THE SECRET PIPE — Thủy spots it and dives in; Minh peeks… and is pulled in.
-    H.walkTo(D('p1', 150), null, 1.8);
-    H.hold(5, { pose: ['stand', 'left'], emote: 'emoteExcl' }); // a pipe!
+    const bSpot0 = H.walkTo(D('p1', 150), null, 1.8);
+    H.hold(6, { pose: ['stand', 'left'], emote: 'emoteExcl' }); // a pipe!
+    const bSpot1 = H.last.b;
     H.move(8, S('j2')); // runs to it
     cues.push([H.last.b, 'jump']);
     H.move(16, E('j2'));
@@ -277,8 +280,9 @@ export class LevelScene extends Phaser.Scene {
     M.holdUntil(Math.max(M.last.b + 1, bThuyIn + 2), { pose: ['stand', 'left'] });
     cues.push([M.last.b, 'jump']);
     M.move(15, E('j2'));
-    M.hold(7, { pose: ['nod', 'down'] }); // peeks inside… (a small comedic pause)
-    M.hold(3, { pose: ['stand', 'down'], emote: 'emoteExcl' });
+    const bPeek0 = M.last.b;
+    M.hold(10, { pose: ['nod', 'down'] }); // peeks inside… (a small comedic pause)
+    M.hold(5, { pose: ['stand', 'down'], emote: 'emoteExcl' }); // …uh-oh
     const bPull = M.last.b;
     this.bPull = bPull;
     cues.push([bPull + 1, 'slide']);
@@ -298,13 +302,16 @@ export class LevelScene extends Phaser.Scene {
 
     // ---- 4 VENUE — Thủy fixes a crooked flower, Minh straightens his suit.
     H.walkTo(D('gl', 188));
-    H.hold(4, { pose: ['stand', 'right'], emote: 'emoteExcl' });
+    H.holdUntil(bMinhOut, { pose: ['stand', 'right'] }); // waits for him
+    H.hold(6, { pose: ['stand', 'right'], emote: 'emoteExcl' }); // notices the crooked flower
     const bFix0 = H.last.b;
-    H.hold(9, { pose: ['reach', 'down'] });
+    H.hold(14, { pose: ['reach', 'down'] }); // straightens it
     const bFix1 = H.last.b;
-    H.hold(5, { pose: ['stand', 'right'], emote: 'emoteHeart' });
-    M.hold(8, { adjust: true });
-    M.hold(3, { pose: ['stand', 'right'] });
+    H.move(5, D('gl', 180), { pose: ['stand', 'right'] }); // steps back…
+    H.hold(8, { pose: ['stand', 'right'], emote: 'emoteHeart' }); // …inspects it: perfect
+    M.hold(5, { pose: ['stand', 'right'] });
+    M.hold(12, { adjust: true }); // meanwhile Minh straightens his suit
+    M.hold(4, { pose: ['stand', 'right'] });
     const bF1 = Math.max(H.last.b, M.last.b);
     H.holdUntil(bF1, { pose: ['stand', 'right'] });
     M.holdUntil(bF1, { pose: ['stand', 'right'] });
@@ -324,7 +331,7 @@ export class LevelScene extends Phaser.Scene {
     M.hold(14, { hop: 22, pose: ['wave', 'down'], celebrate: true }); // victory jump at the pole
     M.hold(6, { pose: ['stand', 'left'] });
     // …Thủy notices the flag is crooked and straightens it
-    H.holdUntil(bR + 34, { face: 'down' });
+    H.holdUntil(bR + 44, { face: 'down' });
     H.hold(10, { pose: ['stand', 'right'], emote: 'emoteExcl' });
     H.move(14, D('gl', 266));
     const bFlag0 = H.last.b;
@@ -350,6 +357,49 @@ export class LevelScene extends Phaser.Scene {
     cues.push([bCross, 'check']); // the turtle's tiny victory
     beats.push(new Beat('finishLine', bR + 30, bEnd));
     Object.assign(this, { bFlag0, bFlag1, bTogether, bEnd, bTurtle0, bTurtle1 });
+
+    // ---- PLAYBACK TIMING: real milliseconds per stretch of the timeline, set
+    // beat by beat (ENTER -> PERFORM -> SETTLE) instead of one speed for all:
+    // walks keep a natural pace, reactions and pauses get time to read.
+    const T = []; let tb = 0;
+    const seg = (b1, ms) => { if (b1 > tb + 1e-6) { T.push([tb, b1, ms]); tb = b1; } };
+    const pace = (b1, msPerB) => seg(b1, (b1 - tb) * msPerB);
+    // page 1 -> 2: the late groom
+    seg(14, 600); // Thủy sets off; Minh reads his notebook
+    seg(24, 700); // …ticks the date ✓
+    seg(31, 650); // looks up: she has gone!
+    seg(this.bDate, 1100); // runs after her; Thủy reaches the ledge and looks down
+    // page 2 -> 3: Gentle Glide · Secret Pipe · flower & suit
+    seg(bLandT, 1500); // Thủy hops off and floats down; Minh hesitates at the edge
+    seg(bLandM, 1000); // Minh follows, arms out
+    seg(bLandM + 14, 650); // wobbles, straightens his jacket
+    pace(bSpot0, 17); // Thủy walks on
+    seg(bSpot1, 550); // a pipe!
+    pace(bThuyIn, 20); // runs and hops in
+    pace(bPeek0, 24); // she whooshes down; Minh climbs up after her
+    seg(bPeek0 + 10, 700); // he peeks inside…
+    seg(bPull, 450); // …uh-oh (pause)
+    seg(bPull + 20, 600); // the pipe pulls him in, legs kicking
+    seg(bMinhOut - 13, 600); // down the tube
+    seg(bMinhOut, 600); // pops out far too high, lands beside her
+    seg(this.bFix0, 500); // she notices the crooked flower
+    seg(this.bFix1, 850); // straightens it
+    seg(this.bFix1 + 5, 350); // steps back
+    seg(this.bF1, 750); // inspects it: perfect (settles on the venue card)
+    // page 3 -> 4: walk to the RSVP spot
+    pace(bR, 26);
+    // after the RSVP: finish line and the late turtle
+    seg(bR + 30, 550); // Minh dashes to the flag
+    seg(bR + 44, 600); // victory jump
+    seg(bR + 54, 500); // Thủy notices the flag is crooked
+    seg(bFlag0, 350); // walks over
+    seg(bFlag1, 700); // straightens it
+    seg(bTogether, 350); // pause
+    seg(bTogether + 18, 500); // they celebrate together
+    seg(bTurtle0, 450); // wave to the guest… and wait
+    seg(bTurtle1, 1300); // the turtle finally waddles across the line
+    seg(bEnd, 150);
+    this.timing = T;
 
     this.M = M;
     this.H = H;
@@ -784,29 +834,35 @@ export class LevelScene extends Phaser.Scene {
     return [0, this.bDate, this.bF1, this.answer ? this.bEnd : this.bR][i];
   }
 
-  /** Natural length of the animation into screen i (ms). */
-  durationTo(i) {
-    return [0, 1800, 3400, 1200][i];
-  }
-
   /**
-   * Time → progress for one transition. Inside the stretch, the clock is spent
-   * where the eye needs it: slower over the glide and the peek into the pipe,
-   * brisker along flat walks, so each animation keeps its own natural rhythm.
+   * Start a transition from b `from` to `to`, played at the beat-by-beat
+   * timing set in buildTimeline (this.timing). Its length is the sum of the
+   * stretches it covers, so each animation keeps its own rhythm.
    */
-  startPlay(from, to, ms, screen) {
-    const weight = (b) => {
-      if (b >= this.bGlideT - 2 && b <= this.bLandM + 6) return 1.5; // the Gentle Glide
-      if (b >= this.bPull - 10 && b <= this.bPull + 22) return 1.4; // Minh peeks… whoosh
-      if (b >= this.bThuyIn && b <= this.bMinhOut - 14) return 0.75; // through the tube
-      return 1;
-    };
-    const step = 0.5; const n = Math.max(1, Math.ceil(Math.abs(to - from) / step));
-    const cum = [0];
-    for (let i = 0; i < n; i++) cum.push(cum[i] + weight(from + (to - from) * ((i + 0.5) / n)));
-    this.play = { from, to, ms: this.reducedMotion ? Math.min(ms, 350) : ms, t0: this.time.now, cum, n, screen, k: 0 };
+  startPlay(from, to, screen) {
+    if (to <= from) { this.settleAt(to); return; }
+    const bs = [from]; const ts = [0];
+    for (const [b0, b1, ms] of this.timing) {
+      if (b1 <= from || b0 >= to) continue;
+      const lo = Math.max(b0, from); const hi = Math.min(b1, to);
+      bs.push(hi); ts.push(ts[ts.length - 1] + ms * ((hi - lo) / (b1 - b0)));
+    }
+    if (bs[bs.length - 1] < to) { bs.push(to); ts.push(ts[ts.length - 1] + (to - bs[bs.length - 2]) * 20); }
+    const total = ts[ts.length - 1];
+    const ms = this.reducedMotion ? Math.min(total, 350) : total;
+    this.play = { from, to, ms, t0: this.time.now, bs, ts, total, screen, k: 0 };
     this.buildCamPath();
     this.syncNav();
+  }
+
+  /** b for elapsed fraction k of the current transition (linear inside each stretch). */
+  playB(k) {
+    const { bs, ts, total } = this.play;
+    const t = Math.max(0, Math.min(1, k)) * total;
+    let i = 1;
+    while (i < ts.length - 1 && ts[i] < t) i++;
+    const f = (t - ts[i - 1]) / ((ts[i] - ts[i - 1]) || 1);
+    return bs[i - 1] + (bs[i] - bs[i - 1]) * Math.min(1, f);
   }
 
   /**
@@ -844,16 +900,6 @@ export class LevelScene extends Phaser.Scene {
     return cam[i] + (cam[i + 1] - cam[i]) * (x - i);
   }
 
-  /** b for elapsed fraction k of the current transition. */
-  playB(k) {
-    const { from, to, cum, n } = this.play;
-    const target = k * cum[n];
-    let lo = 0; let hi = n;
-    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= target) lo = mid; else hi = mid; }
-    const f = lo + (target - cum[lo]) / ((cum[hi] - cum[lo]) || 1);
-    return from + (to - from) * (f / n);
-  }
-
   /** Jump straight to a progress value (skip / back): no sound burst. */
   settleAt(b) {
     this.play = null;
@@ -889,11 +935,16 @@ export class LevelScene extends Phaser.Scene {
 
   goNext() {
     if (!this.canNavigate()) return;
-    if (this.play) { this.settleAt(this.play.to); return; } // a second swipe skips to the end
+    if (this.play) { // a second swipe skips to the end of THIS page…
+      this.settleAt(this.play.to);
+      this.skipGuard = this.time.now + 500; // …and the rest of that flurry is ignored
+      return;
+    }
+    if (this.time.now < (this.skipGuard || 0)) return;
     if (this.screen >= 3) return;
     this.screen += 1;
     soundManager.unlock();
-    this.startPlay(this.b, this.stopB(this.screen), this.durationTo(this.screen), this.screen);
+    this.startPlay(this.b, this.stopB(this.screen), this.screen);
   }
 
   goPrev() {
@@ -944,7 +995,7 @@ export class LevelScene extends Phaser.Scene {
     soundManager.sfx('confirm');
     if (quiet || !this.introDone || this.screen !== 3) return;
     // stay on screen 4 and play the ending (celebration, flag, wave, turtle)
-    this.time.delayedCall(350, () => { if (!this.play) this.startPlay(this.b, this.bEnd, 3200, 3); });
+    this.time.delayedCall(350, () => { if (!this.play) this.startPlay(this.b, this.bEnd, 3); });
   }
 
   setupEndActions() {
