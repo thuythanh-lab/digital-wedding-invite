@@ -55,6 +55,8 @@ const FINISH_X = 216; // little checkered finish line on the venue floor
 const TURTLE_FROM = 96; // the late turtle comes out of the pipe mouth…
 const TURTLE_STOP = 226; // …and stops just over the line, clear of Thủy (x 266)
 const POLE_X = 306;
+const CAL = { x: 46, y: 606, w: 194, h: 164 }; // the wall calendar (a mystery block until Thủy bumps it)
+const CAL_DATES = ['22.12.2026', '23.12.2026']; // pages it flips through before the wedding date
 const BOX_X = 184; // the Surprise Box floats over the venue floor…
 const BOX_Y = YV - 90; // …just above Thủy's head (she can bump it from below)
 const HUD_H = 30; // compact HUD pill (logical units)
@@ -118,7 +120,7 @@ export class LevelScene extends Phaser.Scene {
     this.load.on('progress', (p) => loaderUI.progress(p));
     this.load.on('loaderror', (file) => console.warn('[level] could not load', file.key));
     loadCharacterSheets(this);
-    ['select', 'dialog', 'confirm', 'photoCoin', 'mapOpen', 'mapClose', 'flowerFix', 'land'].forEach((k) => {
+    ['select', 'dialog', 'confirm', 'photoCoin', 'mapOpen', 'mapClose', 'flowerFix', 'land', 'unfold'].forEach((k) => {
       const s = AUDIO_KEYS.sfx[k];
       this.load.audio(s.key, [s.url]);
     });
@@ -222,9 +224,7 @@ export class LevelScene extends Phaser.Scene {
     // ---- 1 THE LATE GROOM — Thủy sets off, Minh is still reading his notebook.
     // (screen 2) Thủy runs ahead; Minh stops to check his calendar — ✓ — and catches up
     M.hold(14, { pose: ['stand', 'down'], prop: 'notebook' });
-    M.hold(10, { pose: ['stand', 'down'], prop: 'notebook', emote: 'emoteCheck' });
     M.hold(7, { pose: ['stand', 'right'], emote: 'emoteExcl' }); // looks up... she has gone!
-    cues.push([16, 'check']);
     M.key(68, D('p0', 244)); // hurries after her
     beats.push(new Beat('lateGroom', 0, 68));
 
@@ -258,15 +258,52 @@ export class LevelScene extends Phaser.Scene {
     H.holdUntil(bLandM + 4, { pose: ['stand', 'right'] }); // Thủy turns toward him… and walks on
     beats.push(new Beat('gentleGlide', bGlideT - 10, M.last.b));
     Object.assign(this, { bGlideT, bLandT, bGlideM, bLandM });
-    // screen 2 stop: both on the ledge by the calendar, Thủy just looking down at the drop
-    this.bDate = bGlideT - 1;
 
-    // ---- 2 WEDDING DATE — under the calendar Minh briefly checks the date.
-    // (the calendar check now happens on screen 2, before the glide)
+    // ---- 2 THE MYSTERY CALENDAR — the wall calendar is a big "?" block. Thủy
+    // bumps it from below: it bounces, its pages flip 22 → 23 → 24.12.2026 and
+    // the header shows THỨ NĂM. Minh, ever thorough, audits it in his notebook.
+    // A: discovery
+    H.walkTo(D('p1', 150), null, 1.4); // right under the calendar
+    M.walkTo(D('p1', 196), null, 1.4); // Minh beside her
+    H.holdUntil(Math.max(H.last.b, M.last.b - 4), { face: 'down' });
+    H.hold(7, { pose: ['stand', 'up'], emote: 'emoteQ' }); // looks up at the "?"
+    const bCalSeen = H.last.b;
+    M.holdUntil(bCalSeen - 4, { pose: ['stand', 'left'] });
+    M.holdUntil(bCalSeen, { pose: ['stand', 'up'] }); // glances up at it too
+    // B: jump and hit — head meets the calendar's underside at the top of the arc
+    H.hold(3, { pose: ['nod', 'down'] }); // crouch
+    const bCalJump0 = H.last.b;
+    H.hold(10, { hop: 34, pose: ['jump', 'down'] }); // veil and dress flare
+    const bCalHit = bCalJump0 + 5;
+    H.hold(3, { pose: ['stand', 'down'] }); // lands back on the platform
+    cues.push([bCalJump0, 'jump'], [bCalHit, 'bump'], [bCalJump0 + 10, 'land']);
+    // C: the reveal — three page flips, slowing on the last; THỨ NĂM; sparkle
+    const bFlip0 = bCalHit + 1;
+    const bCalDone = bFlip0 + 16;
+    cues.push([bFlip0, 'unfold'], [bFlip0 + 4, 'blip'], [bFlip0 + 9, 'blip'], [bCalDone, 'chime']);
+    // D: the auditor — notebook out, check, pause, look again, nod, ✓, notebook away
+    M.holdUntil(bCalDone, { pose: ['stand', 'up'] });
+    M.hold(4, { pose: ['stand', 'down'], prop: 'notebook' });
+    M.hold(5, { pose: ['nod', 'down'], prop: 'notebook' }); // checks the date…
+    M.hold(3, { pose: ['stand', 'down'], prop: 'notebook' }); // …pause
+    M.hold(4, { pose: ['stand', 'up'], prop: 'notebook' }); // looks at the calendar again
+    M.hold(3, { pose: ['nod', 'down'], prop: 'notebook' }); // nods
+    M.hold(6, { pose: ['stand', 'down'], prop: 'notebook', emote: 'emoteCheck' }); // ✓
+    const bCalCheck = M.last.b - 6;
+    M.hold(3, { pose: ['stand', 'down'] }); // notebook closed
+    cues.push([bCalCheck, 'check']);
+    H.holdUntil(bCalDone + 6, { face: 'down' });
+    H.hold(9, { pose: ['stand', 'right'], emote: 'emoteDots' }); // waits for him… "…"
+    // screen 2 stop: both idle under the revealed calendar
+    this.bDate = Math.max(H.last.b, M.last.b) + 2;
+    H.holdUntil(this.bDate, { face: 'down' });
+    M.holdUntil(this.bDate, { face: 'down' });
+    beats.push(new Beat('mysteryCalendar', bCalSeen - 8, this.bDate));
+    Object.assign(this, { bCalSeen, bCalJump0, bCalHit, bFlip0, bCalDone, bCalCheck });
 
     // ---- 3 THE PIPE INSPECTION — Thủy hops straight in; Minh inspects it first…
     // A: arrival — she spots the pipe, pauses, hops in and vanishes
-    const bSpot0 = H.walkTo(D('p1', 150), null, 1.8);
+    const bSpot0 = H.walkTo(D('p1', 138), null, 1.8);
     H.hold(6, { pose: ['stand', 'left'], emote: 'emoteExcl' }); // a pipe!
     const bSpot1 = H.last.b;
     H.move(8, S('j2')); // runs to it
@@ -428,15 +465,27 @@ export class LevelScene extends Phaser.Scene {
     const T = []; let tb = 0;
     const seg = (b1, ms) => { if (b1 > tb + 1e-6) { T.push([tb, b1, ms]); tb = b1; } };
     const pace = (b1, msPerB) => seg(b1, (b1 - tb) * msPerB);
-    // page 1 -> 2: opening interaction incl. Minh's calendar check (≈ 3.75 s)
+    // page 1 -> 2: opening → Gentle Glide → Mystery Calendar
     seg(14, 800); // Thủy sets off; Minh reads his notebook
-    seg(24, 900); // …ticks the date in it ✓
-    seg(31, 800); // looks up: she has gone!
-    seg(this.bDate, 1250); // runs after her; Thủy reaches the ledge and looks down
-    // page 2 -> 3: Gentle Glide → Pipe Inspection → Surprise Box (one flowing scene)
+    seg(21, 750); // looks up: she has gone!
+    seg(bGlideT - 1, 1250); // runs after her; Thủy reaches the ledge and looks down
     seg(bLandT, 1800); // Thủy hops off and floats down; Minh hesitates at the edge
     seg(bLandM, 1250); // Minh follows, arms out
     seg(bLandM + 4, 300); // lands, wobbles…
+    seg(bLandM + 14, 450); // …straightens his jacket while Thủy walks on
+    seg(this.bCalSeen - 7, 550); // both step under the calendar
+    seg(this.bCalSeen, 700); // she looks up at the "?" — Minh glances up too
+    seg(this.bCalJump0, 250); // crouch
+    seg(this.bCalHit, 300); // jump… bump!
+    seg(this.bFlip0, 120); // the calendar bounces
+    seg(this.bFlip0 + 4, 330); // flip → 22.12
+    seg(this.bFlip0 + 9, 430); // flip → 23.12
+    seg(this.bCalDone, 750); // slow last flip → 24.12.2026 · THỨ NĂM · sparkle
+    seg(this.bCalDone + 9, 450); // Minh: notebook out, checks…
+    seg(this.bCalDone + 16, 380); // …pause, looks at the calendar again
+    seg(this.bCalCheck + 6, 550); // nods ✓ (Thủy: "…")
+    seg(this.bDate, 250); // notebook away; both idle
+    // page 2 -> 3: Pipe Inspection → Surprise Box (one flowing scene)
     pace(bSpot0, 13); // …while Thủy already walks on
     seg(bSpot1, 500); // a pipe!
     pace(bThuyIn, 18); // runs and hops straight in
@@ -582,24 +631,9 @@ export class LevelScene extends Phaser.Scene {
       .setWordWrapWidth(270));
     this.greetGroup.push(this.addText(W / 2 - 2, 340, T.inviteLine, { fontFamily: FONT_BODY, fontSize: '24px', color: '#3b2620' }));
 
-    // ===================== 2 DATE — wall calendar hanging under the opening platform
-    const cal = { x: 46, y: 606, w: 194, h: 164 };
-    const g = this.add.graphics().setDepth(DEPTH.board);
-    g.fillStyle(0x6b4529).fillRect(cal.x + 28, Y0 + 70, 2, cal.y - Y0 - 70).fillRect(cal.x + cal.w - 30, Y0 + 70, 2, cal.y - Y0 - 70);
-    g.fillStyle(0x000000, 0.18).fillRect(cal.x + 5, cal.y + 5, cal.w, cal.h);
-    g.fillStyle(0x3b2620).fillRect(cal.x, cal.y, cal.w, cal.h);
-    g.fillStyle(0xb4523a).fillRect(cal.x + 3, cal.y + 3, cal.w - 6, 40);
-    g.fillStyle(0xd27756).fillRect(cal.x + 3, cal.y + 3, cal.w - 6, 3);
-    g.fillStyle(0xf8f0dd).fillRect(cal.x + 3, cal.y + 46, cal.w - 6, cal.h - 49);
-    g.fillStyle(0xe6d7b8);
-    for (let i = 1; i < 7; i++) g.fillRect(cal.x + 3 + i * 27, cal.y + 46, 1, cal.h - 49);
-    for (let j = 1; j < 4; j++) g.fillRect(cal.x + 3, cal.y + 46 + j * 30, cal.w - 6, 1);
-    [cal.x + 28, cal.x + cal.w - 30].forEach((rx) => {
-      g.fillStyle(0xecc96a).fillRect(rx - 3, cal.y - 8, 8, 16);
-      g.fillStyle(0x8f6a25).fillRect(rx - 3, cal.y + 4, 8, 3);
-    });
-    this.addText(cal.x + cal.w / 2, cal.y + 24, WEDDING.weekday, { fontFamily: FONT_BODY, fontSize: '26px', color: '#fff7e6' });
-    this.addText(cal.x + cal.w / 2, cal.y + 104, WEDDING.date, { fontFamily: FONT_TITLE, fontSize: '38px', color: '#3b2620' });
+    // ===================== 2 DATE — wall calendar hanging under the opening platform:
+    // a mystery block ("?") until Thủy bumps it; see buildCalendar / drawCalendar
+    this.buildCalendar();
     // the date platform: the secret pipe stands at its left end, right after the calendar
     this.platform(0, W, Y1);
     this.swayers.push(this.img(196, Y1 + 1, 'flowers', DEPTH.front));
@@ -735,6 +769,130 @@ export class LevelScene extends Phaser.Scene {
     void rng;
   }
 
+  // ================================================================ mystery calendar
+  /**
+   * The wall calendar (same size, colours, straps and border as before). Its
+   * body is a container so the whole calendar can bounce; its pages are
+   * separate sheets hinged at the top of the body so they can flip up:
+   *   sheet 0 = big "?", sheets 1-2 = 22.12 / 23.12, sheet 3 = 24.12.2026.
+   */
+  buildCalendar() {
+    const c = CAL;
+    const g = this.add.graphics().setDepth(DEPTH.board);
+    g.fillStyle(0x6b4529).fillRect(c.x + 28, Y0 + 70, 2, c.y - Y0 - 70).fillRect(c.x + c.w - 30, Y0 + 70, 2, c.y - Y0 - 70);
+    g.fillStyle(0x000000, 0.18).fillRect(c.x + 5, c.y + 5, c.w, c.h);
+    const body = this.add.graphics();
+    body.fillStyle(0x3b2620).fillRect(0, 0, c.w, c.h);
+    body.fillStyle(0xb4523a).fillRect(3, 3, c.w - 6, 40);
+    body.fillStyle(0xd27756).fillRect(3, 3, c.w - 6, 3);
+    body.fillStyle(0xe6d7b8).fillRect(3, 46, c.w - 6, c.h - 49); // under the sheets
+    const rings = this.add.graphics();
+    [28, c.w - 30].forEach((rx) => {
+      rings.fillStyle(0xecc96a).fillRect(rx - 3, -8, 8, 16);
+      rings.fillStyle(0x8f6a25).fillRect(rx - 3, 4, 8, 3);
+    });
+    const sw = c.w - 6; const sh = c.h - 49;
+    const sheet = (i) => {
+      const gg = this.add.graphics();
+      gg.fillStyle(0xf8f0dd).fillRect(0, 0, sw, sh);
+      gg.fillStyle(0xe6d7b8);
+      for (let k = 1; k < 7; k++) gg.fillRect(k * 27, 0, 1, sh);
+      for (let j = 1; j < 4; j++) gg.fillRect(0, j * 30, sw, 1);
+      gg.fillStyle(0xd8c6a2).fillRect(0, sh - 2, sw, 2); // paper edge
+      const parts = [gg];
+      if (i === 0) {
+        // one big pixel-art question mark (original glyph), with a soft shadow
+        const rows = [' 111 ', '11 11', '   11', '  11 ', '  11 ', '     ', '  11 '];
+        const q = this.add.graphics(); const cell = 9; const ox = sw / 2 - 2.5 * cell; const oy = sh / 2 - 3.5 * cell;
+        [[3, 0x8c4430], [0, 0xb4523a]].forEach(([off, col]) => {
+          q.fillStyle(col);
+          rows.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '1') q.fillRect(ox + x * cell + off, oy + y * cell + off, cell, cell); }));
+        });
+        parts.push(q);
+      } else {
+        const big = i === 3;
+        const t = makeText(this, sw / 2, sh / 2 + 2, big ? WEDDING.date : CAL_DATES[i - 1], {
+          fontFamily: FONT_TITLE, fontSize: big ? '38px' : '34px', color: big ? '#3b2620' : '#8c6a55',
+        }).setOrigin(0.5, 0.5);
+        this.texts.push(t);
+        parts.push(t);
+      }
+      const shade = this.add.graphics().fillStyle(0x3b2620, 1).fillRect(0, 0, sw, sh);
+      shade.setAlpha(0);
+      parts.push(shade);
+      const ct = this.add.container(3, 46, parts);
+      ct.shade = shade;
+      return ct;
+    };
+    this.calSheets = [0, 1, 2, 3].map(sheet);
+    // the shadow a lifting page casts on the sheet underneath
+    this.calCast = this.add.graphics().fillStyle(0x3b2620, 1).fillRect(0, 0, sw, 10);
+    this.calCast.setPosition(3, 46).setAlpha(0);
+    this.calGlow = this.add.graphics().fillStyle(0xffffff, 1).fillRect(3, 46, sw, sh);
+    this.calGlow.setAlpha(0);
+    this.calDay = makeText(this, c.w / 2, 24, WEDDING.weekday, { fontFamily: FONT_BODY, fontSize: '26px', color: '#fff7e6' }).setOrigin(0.5, 0.5);
+    this.texts.push(this.calDay);
+    this.calBody = this.add.container(c.x, c.y, [body, ...this.calSheets.slice().reverse(), this.calCast, this.calGlow, rings, this.calDay])
+      .setDepth(DEPTH.board);
+    this.calSparks = [[-12, 18], [c.w + 10, 30], [c.w + 4, c.h - 20], [-8, c.h - 34]].map(([dx, dy]) =>
+      this.add.image(c.x + dx, c.y + dy, 'sparkle').setScale(ART).setDepth(DEPTH.fx).setVisible(false));
+    this.calReplay = null;
+    // initial (mystery) state, also on the title screen before anything is drawn
+    this.calSheets.forEach((sh, i) => sh.setVisible(i === 0));
+    this.calDay.setAlpha(0);
+  }
+
+  /**
+   * The calendar as a pure function of progress (skipping or going back always
+   * shows the right state; once past the reveal the date simply stays up).
+   * A tap on the revealed calendar replays just its bounce + flips.
+   */
+  drawCalendar(b) {
+    let fb = b;
+    const R = this.calReplay;
+    if (R) {
+      const k = (this.time.now - R.t0) / 1900;
+      if (k >= 1 || this.play) this.calReplay = null;
+      else fb = this.bCalHit + k * (this.bCalDone - this.bCalHit);
+    }
+    const hit = this.bCalHit; const f0 = this.bFlip0;
+    this.calBody.y = CAL.y - Math.round(Math.sin(Math.PI * ramp(fb, hit, hit + 3)) * 5);
+    // which page is lifting, and how far (0..1)
+    const flips = [[f0, f0 + 4], [f0 + 4, f0 + 9], [f0 + 9, this.bCalDone]];
+    let top = 0; let lift = 0;
+    flips.forEach(([a, z], i) => { if (fb >= z) top = i + 1; else if (fb > a && top === i) lift = ramp(fb, a, z); });
+    if (fb >= this.bCalDone) { top = 3; lift = 0; }
+    this.calSheets.forEach((sh, i) => {
+      const show = i === top || (lift > 0 && i === top + 1);
+      sh.setVisible(show);
+      if (!show) return;
+      if (i === top && lift > 0) {
+        const e = lift * lift * (3 - 2 * lift); // eased fold
+        sh.setScale(1, Math.max(0.001, 1 - e)); // folds up over the top binding…
+        sh.shade.setAlpha(0.35 * e); // …and darkens as it turns away
+      } else { sh.setScale(1, 1); sh.shade.setAlpha(0); }
+    });
+    this.calCast.setAlpha(lift > 0 ? 0.28 * (1 - lift) : 0);
+    this.calCast.setScale(1, 1 + 3 * (1 - lift));
+    // the header shows THỨ NĂM as the last page settles
+    this.calDay.setAlpha(ramp(fb, f0 + 12, this.bCalDone));
+    // before activation: a very gentle pulse says "something is in here"
+    const idle = fb < hit && !this.reducedMotion;
+    this.calGlow.setAlpha(idle ? 0.05 + 0.05 * Math.sin(this.time.now / 420) : 0);
+    const spark = fb >= this.bCalDone - 1 && fb < this.bCalDone + 7;
+    this.calSparks.forEach((sp, i) => sp.setVisible(spark && Math.floor(this.time.now / 140 + i) % 2 === 0));
+  }
+
+  /** Tap on the revealed calendar (page 2, at rest): replay its reveal, quietly. */
+  replayCalendar() {
+    if (this.calReplay || this.navState() !== 'idle' || this.b < this.bCalDone) return false;
+    this.calReplay = { t0: this.time.now };
+    this.sfx('bump');
+    this.time.delayedCall(80, () => this.sfx('unfold'));
+    this.time.delayedCall(1800, () => this.sfx('chime'));
+    return true;
+  }
+
   // ================================================================ hearts (11 groups × 9 = 99)
   buildHearts() {
     const P = this.path;
@@ -800,8 +958,10 @@ export class LevelScene extends Phaser.Scene {
     el.addEventListener('click', (e) => {
       if (!this.introDone || this.photos.isOpen || this.play) return;
       if (onHud(e)) { soundManager.sfx('select'); this.photos.openGallery(false); return; }
-      const c = hit(toWorld(e));
-      if (c) this.collectPhotoCoin(c);
+      const w = toWorld(e);
+      const c = hit(w);
+      if (c) { this.collectPhotoCoin(c); return; }
+      if (w.x >= CAL.x && w.x <= CAL.x + CAL.w && w.y >= CAL.y && w.y <= CAL.y + CAL.h) this.replayCalendar();
     });
     el.addEventListener('mousemove', (e) => {
       el.style.cursor = this.introDone && (hit(toWorld(e)) || onHud(e)) ? 'pointer' : '';
@@ -1247,6 +1407,7 @@ export class LevelScene extends Phaser.Scene {
 
     // ---------------- environment linked to progress
     this.drawSurpriseBox(b);
+    this.drawCalendar(b);
     const fr = ramp(b, this.bFix0 + 2, this.bFix1 - 2);
     this.tallFlower.setRotation((1 - fr) * 0.5);
     this.flowerSparkle.setVisible(b > this.bFix1 && b < this.bFlowerDone + 4 && Math.floor(this.time.now / 160) % 2 === 0);
