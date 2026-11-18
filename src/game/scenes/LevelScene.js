@@ -17,7 +17,7 @@ import { RsvpDialog } from '../mario/RsvpDialog.js';
 import { PhotoBook } from '../mario/Photos.js';
 import { fillInfoCard, QuickView } from '../mario/InfoCard.js';
 import { TitleIntro } from '../mario/TitleIntro.js';
-import { ScrollPace } from '../mario/ScrollPace.js';
+import { ScreenNav } from '../mario/ScreenNav.js';
 import { readGuest, savedRsvp } from '../mario/rsvp.js';
 import { showMusicToggle } from '../ui/MusicToggle.js';
 
@@ -36,7 +36,11 @@ import { showMusicToggle } from '../ui/MusicToggle.js';
 
 // ------------------------------------------------------------------ layout (world units; 1 art px = 2 units)
 const ART = 2;
-// Scroll ↔ progress mapping: per-section, motion-calibrated (see buildPace / ScrollPace.js).
+// FOUR SCREENS (one swipe = one screen). The level is still one deterministic
+// timeline of progress b; each screen is a stable stop on it and a swipe plays
+// the stretch to the next stop on a clock, at the animation's own speed:
+//   0 WELCOME (after BẮT ĐẦU)  →  1 WEDDING DATE  →  2 SEASONS  →  3 RSVP & ENDING
+const SCREEN_LABELS = ['Màn 1: Chào mừng', 'Màn 2: Ngày cưới', 'Màn 3: Tiệc cưới tại Seasons', 'Màn 4: Trả lời thiệp'];
 const Y0 = 500; // opening
 const Y1 = 860; // date platform (pipe entrance)
 const YV = Y1 + 560; // venue floor (pipe exit) — also the RSVP + finish floor
@@ -142,10 +146,12 @@ export class LevelScene extends Phaser.Scene {
     this.glideFx = this.add.graphics().setDepth(DEPTH.chars - 1);
     this.buildHud();
 
+    // the transparent layer above the canvas: taps (coins, HUD) and swipes; it no longer scrolls
     this.scroller = new ScrollDriver();
     this.scroller.el.scrollTop = 0;
     this.scroller.enable(false);
-    this.updateScrollLength();
+    this.screen = 0;
+    this.play = null;
 
     this.dialog = new RsvpDialog({
       root: document.getElementById('rsvp'),
@@ -154,12 +160,6 @@ export class LevelScene extends Phaser.Scene {
       onConfirmed: (rec) => this.onRsvpConfirmed(rec),
     });
     this.layoutFinal();
-    this.buildPace();
-    this.updateScrollLength();
-    // development-only pacing overlay (dev server + ?pace); removed from production builds
-    if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('pace')) {
-      import('../dev/PaceDebug.js').then(({ PaceDebug }) => { this.paceDebug = new PaceDebug(this); });
-    }
     this.photos = new PhotoBook({ scroller: this.scroller, onChange: (n) => this.setPhotoHud(n) });
     this.buildPhotoCoins();
     this.setPhotoHud(this.photos.count);
@@ -174,6 +174,14 @@ export class LevelScene extends Phaser.Scene {
       onPhotos: () => this.photos.openGallery(false),
       isStarted: () => this.introDone,
       photoCount: () => this.photos.count,
+    });
+    this.nav = new ScreenNav({
+      el: this.scroller.el,
+      count: SCREEN_LABELS.length,
+      labels: SCREEN_LABELS,
+      onNext: () => this.goNext(),
+      onPrev: () => this.goPrev(),
+      onGo: (i) => this.goTo(i),
     });
     this.infoBtn = document.getElementById('info-btn');
     this.infoBtn?.addEventListener('click', () => { soundManager.sfx('select'); this.quick.open(this.infoBtn); });
@@ -210,16 +218,16 @@ export class LevelScene extends Phaser.Scene {
     const cues = []; // [b, sfx]
 
     // ---- 1 THE LATE GROOM — Thủy sets off, Minh is still reading his notebook.
+    // (screen 2) Thủy runs ahead; Minh stops to check his calendar — ✓ — and catches up
     M.hold(14, { pose: ['stand', 'down'], prop: 'notebook' });
-    M.hold(8, { pose: ['stand', 'right'], prop: 'notebook', emote: 'emoteQ' }); // …where did she go?
-    M.hold(4, { pose: ['stand', 'right'], emote: 'emoteExcl' });
-    cues.push([22, 'mapClose']);
+    M.hold(10, { pose: ['stand', 'down'], prop: 'notebook', emote: 'emoteCheck' });
+    cues.push([16, 'check']);
     M.key(62, D('p0', 244)); // hurries after her
     beats.push(new Beat('lateGroom', 0, 62));
 
     // ---- THE GENTLE GLIDE (scroll-driven: every pose below is a pure function of b)
     // A: Thủy reaches the ledge, looks down… and hops off; her veil catches the breeze.
-    H.walkTo(S('gd'), null, 1.5);
+    this.bLedgeT = H.walkTo(S('gd'), null, 1.5);
     H.hold(5, { pose: ['nod', 'down'] }); // looks down
     const bGlideT = H.last.b;
     cues.push([bGlideT + 1, 'jump']);
@@ -246,13 +254,11 @@ export class LevelScene extends Phaser.Scene {
     H.holdUntil(M.last.b, { pose: ['stand', 'right'] }); // Thủy turns toward him
     beats.push(new Beat('gentleGlide', bGlideT - 10, M.last.b));
     Object.assign(this, { bGlideT, bLandT, bGlideM, bLandM });
+    // screen 2 stop: both on the ledge by the calendar, Thủy just looking down at the drop
+    this.bDate = bGlideT - 1;
 
     // ---- 2 WEDDING DATE — under the calendar Minh briefly checks the date.
-    const bCal = M.walkTo(D('p1', 176), null, 1.8);
-    M.hold(5, { pose: ['stand', 'up'] });
-    M.hold(8, { pose: ['stand', 'up'], emote: 'emoteCheck' });
-    beats.push(new Beat('calendarCheck', bCal, M.last.b));
-    this.bCalEnd = M.last.b;
+    // (the calendar check now happens on screen 2, before the glide)
 
     // ---- 3 THE SECRET PIPE — Thủy spots it and dives in; Minh peeks… and is pulled in.
     H.walkTo(D('p1', 150), null, 1.8);
@@ -274,6 +280,7 @@ export class LevelScene extends Phaser.Scene {
     M.hold(7, { pose: ['nod', 'down'] }); // peeks inside… (a small comedic pause)
     M.hold(3, { pose: ['stand', 'down'], emote: 'emoteExcl' });
     const bPull = M.last.b;
+    this.bPull = bPull;
     cues.push([bPull + 1, 'slide']);
     cues.push([bPull + 3, 'whoosh']); // …and the pipe pulls him in
     // ~5 units of drop per path unit: +8 ≈ 40 deep, so his legs still stick out.
@@ -592,11 +599,10 @@ export class LevelScene extends Phaser.Scene {
     // nine hearts on the natural route, all collected before the RSVP;
     // never over the calendar date, the info card or the characters' faces
     const spots = [
-      at('p0', 214), at('p0', 262), // opening
-      at('p1', 228), at('p1', 172), // under the wedding calendar (below its date)
-      { d: gd.start + gd.len * 0.55, lift: 30 }, // mid-glide, in the open sky
-      at('gl', 150), at('gl', 182), // Seasons venue
-      at('gl', 208), at('gl', 230), // walking up to the RSVP spot (Thủy stops at 236)
+      at('p0', 214), at('p0', 238), at('p0', 262), // screen 1 → 2: the opening run
+      at('p1', 228), at('p1', 172), // screen 2 → 3: under the wedding calendar (below its date)
+      { d: gd.start + gd.len * 0.55, lift: 30 }, // …mid-glide, in the open sky
+      at('gl', 146), at('gl', 166), at('gl', 186), // …arriving at Seasons (Thủy stops at 188)
     ];
     if (spots.length !== HEART_COUNT) throw new Error(`heart layout: ${spots.length}`);
     this.hearts = spots.map(({ d, lift }) => {
@@ -619,7 +625,7 @@ export class LevelScene extends Phaser.Scene {
   buildPhotoCoins() {
     const defs = [
       { id: 1, x: 20, y: Y0 - 14, depth: DEPTH.front - 1 }, // behind the bush on the opening platform
-      { id: 2, x: 164, y: YV - 14, depth: DEPTH.front - 1 }, // behind the flowers at the tree's foot
+      { id: 2, x: 247, y: 646, depth: DEPTH.board - 1 }, // peeking out from behind the wedding calendar
       { id: 3, x: 22, y: YV - 84, depth: DEPTH.coins }, // a gem in the earth wall by the pipe exit
     ];
     this.photoCoins = defs.map((c) => {
@@ -648,7 +654,7 @@ export class LevelScene extends Phaser.Scene {
       return h && x >= h.x - 4 && x <= h.x + h.w + 4 && y >= h.y - 6 && y <= h.y + h.h + 6;
     };
     el.addEventListener('click', (e) => {
-      if (!this.introDone || this.photos.isOpen) return;
+      if (!this.introDone || this.photos.isOpen || this.play) return;
       if (onHud(e)) { soundManager.sfx('select'); this.photos.openGallery(false); return; }
       const c = hit(toWorld(e));
       if (c) this.collectPhotoCoin(c);
@@ -746,13 +752,14 @@ export class LevelScene extends Phaser.Scene {
   beginPlay() {
     if (this.infoBtn) this.infoBtn.hidden = false;
     this.setHudVisible(true);
-    this.scroller.stopAnimation();
-    this.scroller.el.scrollTop = 0;
     this.b = 0;
     this.prevB = 0;
+    this.screen = 0;
+    this.play = null;
     this.introDone = true;
-    this.scroller.enable(true);
+    this.nav.enable(true);
     this.render(0, 16, false);
+    this.syncNav();
     this.scroller.el.focus({ preventScroll: true });
   }
 
@@ -771,60 +778,112 @@ export class LevelScene extends Phaser.Scene {
     ['bg', 'heart', 'txt', 'coin', 'photo'].forEach((k) => this.hud[k].setVisible(on));
   }
 
-  // ================================================================ RSVP / ending
-  /** Scroll position (CSS px) for progress b. */
-  pxAt(b) { return this.pace ? this.pace.pxAt(b) : b * 1.6; }
+  // ================================================================ screens (one swipe = one screen)
+  /** Stable progress value of each screen (where its entrance animation ends). */
+  stopB(i) {
+    return [0, this.bDate, this.bF1, this.answer ? this.bEnd : this.bR][i];
+  }
 
-  updateScrollLength() {
-    this.scroller.setLength(this.pxAt(this.answer ? this.bEnd : this.bR));
+  /** Natural length of the animation into screen i (ms). */
+  durationTo(i) {
+    return [0, 1800, 3400, 1200][i];
   }
 
   /**
-   * Per-section scroll budgets, in "screens" of this phone (fixed at load).
-   * 'move' sections flow quickly; 'info' sections give reading time. Inside each
-   * section scroll follows what actually moves on screen (ScrollPace.js).
+   * Time → progress for one transition. Inside the stretch, the clock is spent
+   * where the eye needs it: slower over the glide and the peek into the pipe,
+   * brisker along flat walks, so each animation keeps its own natural rhythm.
    */
-  buildPace() {
-    const screenPx = Phaser.Math.Clamp(this.layout.cssH, 560, 900);
-    const sections = [
-      { id: 'opening', label: '1 Opening run', kind: 'move', b0: 0, b1: this.bGlideT - 6, screens: 0.42 },
-      { id: 'glide', label: '2 Gentle Glide', kind: 'move', b0: this.bGlideT - 6, b1: this.bLandM + 14, screens: 0.62 },
-      { id: 'calendar', label: '3 Wedding calendar', kind: 'info', b0: this.bLandM + 14, b1: this.bCalEnd, screens: 0.36 },
-      { id: 'pipe', label: '4 Secret Pipe', kind: 'move', b0: this.bCalEnd, b1: this.bMinhOut, screens: 0.85 },
-      { id: 'venue', label: '5 Seasons venue', kind: 'info', b0: this.bMinhOut, b1: this.bF1, screens: 0.22 },
-      { id: 'rsvp', label: '6 To the RSVP', kind: 'info', b0: this.bF1, b1: this.bR, screens: 0.32 },
-      { id: 'finish', label: '7 Finish line', kind: 'move', b0: this.bR, b1: this.bEnd, screens: 0.6 },
-    ];
-    // on-screen motion between two progress values: camera travel and each
-    // character's travel on the screen (logical units), from the pure level state
+  startPlay(from, to, ms, screen) {
+    const weight = (b) => {
+      if (b >= this.bGlideT - 2 && b <= this.bLandM + 6) return 1.5; // the Gentle Glide
+      if (b >= this.bPull - 10 && b <= this.bPull + 22) return 1.4; // Minh peeks… whoosh
+      if (b >= this.bThuyIn && b <= this.bMinhOut - 14) return 0.75; // through the tube
+      return 1;
+    };
+    const step = 0.5; const n = Math.max(1, Math.ceil(Math.abs(to - from) / step));
+    const cum = [0];
+    for (let i = 0; i < n; i++) cum.push(cum[i] + weight(from + (to - from) * ((i + 0.5) / n)));
+    this.play = { from, to, ms: this.reducedMotion ? Math.min(ms, 350) : ms, t0: this.time.now, cum, n, screen };
+    this.syncNav();
+  }
+
+  /** b for elapsed fraction k of the current transition. */
+  playB(k) {
+    const { from, to, cum, n } = this.play;
+    const target = k * cum[n];
+    let lo = 0; let hi = n;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= target) lo = mid; else hi = mid; }
+    const f = lo + (target - cum[lo]) / ((cum[hi] - cum[lo]) || 1);
+    return from + (to - from) * (f / n);
+  }
+
+  /** Jump straight to a progress value (skip / back): no sound burst. */
+  settleAt(b) {
+    this.play = null;
+    this.quietJump = true;
+    this.b = b;
+    this.render(b, 16, false);
+    this.quietJump = false;
+    this.prevB = b;
+    this.syncNav();
+  }
+
+  canNavigate() {
+    return this.introDone && !this.photos.isOpen && !this.quick?.isOpen;
+  }
+
+  goNext() {
+    if (!this.canNavigate()) return;
+    if (this.play) { this.settleAt(this.play.to); return; } // a second swipe skips to the end
+    if (this.screen >= 3) return;
+    this.screen += 1;
+    soundManager.unlock();
+    this.startPlay(this.b, this.stopB(this.screen), this.durationTo(this.screen), this.screen);
+  }
+
+  goPrev() {
+    if (!this.canNavigate()) return;
+    if (this.play) { // swiping back mid-transition returns to the screen we came from
+      const back = Math.max(0, this.play.screen - 1);
+      this.screen = back;
+      this.settleAt(this.stopB(back));
+      return;
+    }
+    if (this.screen <= 0) return;
+    this.screen -= 1;
+    this.fadeJump(this.stopB(this.screen));
+  }
+
+  /** Dots: back = instant; forward = the usual animated step(s), or instant if several. */
+  goTo(i) {
+    if (!this.canNavigate() || i === this.screen) return;
+    if (i === this.screen + 1 && !this.play) { this.goNext(); return; }
+    this.screen = i;
+    this.fadeJump(this.stopB(i));
+  }
+
+  /** Backward / multi-step moves: a quick fade instead of rewinding animations. */
+  fadeJump(b) {
     const cam = this.cameras.main;
-    const snap = (b) => {
-      this.render(b, 16, true);
-      const top = cam.scrollY;
-      const pT = this.path.at(this.H.eval(b).d); const pM = this.path.at(Math.max(0, this.M.eval(b).d));
-      return { top, tx: pT.x, ty: pT.y - top, mx: pM.x, my: pM.y - top };
-    };
-    let last = null; let lastB = -1;
-    const motionAt = (b0, b1) => {
-      const a = lastB === b0 ? last : snap(b0);
-      const c = snap(b1);
-      last = c; lastB = b1;
-      return Math.max(Math.abs(c.top - a.top), Math.hypot(c.tx - a.tx, c.ty - a.ty), Math.hypot(c.mx - a.mx, c.my - a.my));
-    };
-    const keep = cam.scrollY;
-    this.pace = new ScrollPace({ sections, motionAt, screenPx });
-    this.paceScreenPx = screenPx;
-    cam.scrollY = keep;
-    this.render(this.b || 0, 16, true);
+    if (this.reducedMotion) { this.settleAt(b); return; }
+    cam.fadeOut(110, 255, 250, 240);
+    cam.once('camerafadeoutcomplete', () => { this.settleAt(b); cam.fadeIn(160, 255, 250, 240); });
+  }
+
+  syncNav() {
+    // under the RSVP box / end buttons (screen 4) the corner belongs to them
+    const show = this.introDone && this.screen < 3;
+    this.nav.setState(this.screen, { show, busy: !!this.play });
   }
 
   /** Called only after the backend confirmed. From the quick view (quiet) the game keeps its place. */
   onRsvpConfirmed(record, { quiet = false } = {}) {
     this.answer = record;
     soundManager.sfx('confirm');
-    this.updateScrollLength();
-    if (quiet || !this.introDone) return;
-    this.time.delayedCall(350, () => this.scroller.animateTo(this.pxAt(this.bEnd), this.reducedMotion ? 0 : 4500));
+    if (quiet || !this.introDone || this.screen !== 3) return;
+    // stay on screen 4 and play the ending (celebration, flag, wave, turtle)
+    this.time.delayedCall(350, () => { if (!this.play) this.startPlay(this.b, this.bEnd, 3200, 3); });
   }
 
   setupEndActions() {
@@ -832,16 +891,14 @@ export class LevelScene extends Phaser.Scene {
     this.endMsg = this.endActions.querySelector('.end-msg');
     document.getElementById('btn-review')?.addEventListener('click', () => {
       soundManager.sfx('select');
-      this.scroller.animateTo(0, this.reducedMotion ? 0 : 2000);
+      this.screen = 0;
+      this.fadeJump(0); // back to the first screen; swipe again to re-read
     });
     document.getElementById('btn-replay')?.addEventListener('click', () => {
       soundManager.sfx('select');
-      this.scroller.stopAnimation();
-      this.scroller.el.scrollTop = 0;
-      this.b = 0;
-      this.prevB = 0;
       this.resetHearts();
-      this.render(0, 16, false);
+      this.screen = 0;
+      this.settleAt(0);
     });
     document.getElementById('btn-gallery')?.addEventListener('click', () => {
       soundManager.sfx('select');
@@ -850,8 +907,8 @@ export class LevelScene extends Phaser.Scene {
     document.getElementById('btn-change')?.addEventListener('click', () => {
       soundManager.sfx('select');
       this.answer = null;
-      this.updateScrollLength();
-      this.scroller.animateTo(this.pxAt(this.bR), 0);
+      this.screen = 3;
+      this.settleAt(this.bR);
     });
   }
 
@@ -915,19 +972,17 @@ export class LevelScene extends Phaser.Scene {
     this.layoutHud();
     this.layoutFinal();
     if (this.intro?.state === 'title') { this.intro.layout(); this.cameras.main.scrollY = this.intro.cam; }
-    this.updateScrollLength();
   }
 
   update(time, delta) {
     if (this.introDone) {
-      const maxB = this.answer ? this.bEnd : this.bR;
-      const target = Math.min(maxB, Math.max(0, this.pace.bAt(this.scroller.value)));
-      const tau = this.reducedMotion ? 0 : 70;
-      const k = tau ? 1 - Math.exp(-Math.min(delta, 100) / tau) : 1;
-      this.b += (target - this.b) * k;
-      if (Math.abs(target - this.b) < 0.05) this.b = target;
+      if (this.play) {
+        const k = Math.min(1, (time - this.play.t0) / this.play.ms);
+        this.b = this.playB(k);
+        if (k >= 1) { this.b = this.play.to; this.play = null; this.syncNav(); }
+      }
+      // between transitions b stays put: the scene settles, only idle loops move
       this.render(this.b, delta, false);
-      this.paceDebug?.update(time);
     } else this.intro?.update(time);
     this.ambient(time);
   }
@@ -995,7 +1050,7 @@ export class LevelScene extends Phaser.Scene {
     this.drawGlideFx(b, eT, eM);
     this.fadeTitle();
 
-    if (forward) {
+    if (forward && !this.quietJump) {
       this.cues.forEach(([cb, name]) => {
         if (this.prevB < cb && b >= cb) {
           if (name === 'victory' && this.answer?.attending === false) this.sfx('gentle');
@@ -1008,7 +1063,7 @@ export class LevelScene extends Phaser.Scene {
     if (b >= this.bR - 6 && !this.answer) this.dialog.show();
     else if (b < this.bR - 30 || this.answer) this.dialog.hide();
     this.endActions.hidden = !(this.answer && b > this.bEnd - 20);
-    this.hint.setVisible(this.introDone && b < 12 && (this.reducedMotion || (this.time.now % 1400) < 1000));
+    this.hint.setVisible(this.introDone && this.screen === 0 && !this.play && b < 1 && (this.reducedMotion || (this.time.now % 1600) < 1100));
     this.placeVenueCard(b);
   }
 
@@ -1029,7 +1084,7 @@ export class LevelScene extends Phaser.Scene {
       this.plusEleven(h.s.x, h.s.y - 10);
     });
     this.heartCount = Math.min(99, this.hearts.filter((h) => h.got).length * HEART_VALUE);
-    if (forward) this.sfx('heart');
+    if (forward && !this.quietJump) this.sfx('heart');
     this.hud.txt.setText(`×${String(this.heartCount).padStart(2, '0')}`);
     this.layoutHud();
     if (!this.reducedMotion) {
@@ -1219,7 +1274,7 @@ export class LevelScene extends Phaser.Scene {
 
   sfx(name) {
     const now = this.time.now;
-    if (!this.introDone) return;
+    if (!this.introDone || this.quietJump) return;
     const gap = name === 'heart' ? 60 : 150;
     if (now - (this.lastSfx[name] || 0) < gap) return;
     this.lastSfx[name] = now;

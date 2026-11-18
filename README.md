@@ -77,6 +77,19 @@ browser's localStorage — use **XUẤT CSV** (UTF-8, opens in Excel) to back it
 | On this computer (`localhost`, dev or preview) | `/api/rsvp` → `rsvp-data/rsvps.json` (one row per guest id) | ✅ tested |
 | Published site | `VITE_RSVP_ENDPOINT` in `.env` (the Google Apps Script) | ⚠ configured, **not verified**: the deployed script has no `doGet`, and its `doPost` contract is unknown. Success is shown only for a JSON reply with `"ok": true`. See `docs/apps-script/` for the matching script and a one-row live test (`?rsvpLive=1`). |
 
+### Navigation: four screens (one swipe = one screen)
+
+The level is still one deterministic timeline; navigation is now discrete
+(`src/game/mario/ScreenNav.js` + `LevelScene` "screens"): swipe up / wheel /
+↓ / ▼ plays the next screen's entrance animation on a clock at its natural
+speed, then the scene settles; swipe down / ↑ / ▲ jumps back to the previous
+screen's settled state (short fade). A second swipe during a transition skips
+to its end. Screens: 1 Welcome (after BẮT ĐẦU) → 2 Wedding date (≈1.8 s) →
+3 Seasons (Gentle Glide + Secret Pipe, ≈3.4 s) → 4 RSVP (≈1.2 s); after a
+confirmed answer the ending plays on screen 4 (≈3 s). Hearts: 3 + 6 during the
+first two transitions (×99 before the RSVP). Coins: welcome (bush), date
+(behind the calendar), Seasons (earth wall by the pipe).
+
 ### Music licence ⚠ (check before publishing)
 
 The background music is **"Littleroot Town x Pallet Town"**

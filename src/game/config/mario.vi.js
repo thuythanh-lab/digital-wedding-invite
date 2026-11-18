@@ -9,7 +9,7 @@ export const MARIO_TEXT = {
   // Opening
   greeting: (n) => (n ? `Gửi ${n},` : 'Gửi bạn,'),
   inviteLine: 'Có một lời mời dành cho bạn!',
-  scrollHint: '↓  VUỐT ĐỂ KHÁM PHÁ',
+  scrollHint: '↑  VUỐT LÊN ĐỂ TIẾP TỤC',
   // Title screen — the name is shown exactly as given in the link (no added
   // titles/honorifics), upper-cased in Vietnamese.
   titleQuestion: (n) => `${n.toLocaleUpperCase('vi')}, SẴN SÀNG CHƯA?`,
@@ -67,7 +67,7 @@ export const MARIO_TEXT = {
   photoHintNote: 'Gợi ý: đồng xu vàng có hình máy ảnh — chạm vào để mở!',
   photoUnlockNote: 'Chạm vào ô “?” để mở luôn nhé!',
   photoHint1: 'Sau bụi cây chỗ chú rùa',
-  photoHint2: 'Sau khóm hoa dưới gốc cây',
+  photoHint2: 'Sau tấm lịch cưới',
   photoHint3: 'Trong vách đất cạnh ống nước',
 
   review: '▲ XEM LẠI THIỆP',
