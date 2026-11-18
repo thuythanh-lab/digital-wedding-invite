@@ -44,6 +44,10 @@ export class RsvpDialog {
       btn.addEventListener('pointerenter', () => this.select(i, false));
       btn.addEventListener('focus', () => this.select(i, false));
     });
+    // "Done"/Enter on the keyboard only closes it: the name and the choice stay
+    this.nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); this.nameInput.blur(); }
+    });
   }
 
   question() {
@@ -140,6 +144,7 @@ export class RsvpDialog {
     }
     this.select(attending ? 0 : 1, false);
     this.buttons.forEach((b) => b.classList.remove('is-retry'));
+    this.nameInput.blur(); // close the keyboard while sending (the name is kept)
     soundManager.sfx('select');
     this.setBusy(true);
     this.say(T.rsvpSending);

@@ -758,11 +758,21 @@ body.is-framed #frame {
 }
 .end-msg[hidden] { display: none; }
 
-/* while the on-screen keyboard is up, keep the whole RSVP box reachable */
+/* while the on-screen keyboard is up, the RSVP box fits the visible area
+   (just above the keyboard) and scrolls inside itself if it has to */
 .kb-open #rsvp {
-  max-height: calc(100% - var(--safe-top, 0px) - 70px - var(--kb, 0px));
+  bottom: calc(var(--kb, 0px) + 8px);
+  max-height: calc(var(--kb-room, 100%) - 16px);
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  transition: none;
 }
+.kb-open #info-modal { align-items: flex-start; padding-bottom: calc(var(--kb, 0px) + 8px); }
+.kb-open #info-modal .pm-box { max-height: calc(var(--kb-room, 100%) - 24px); }
+/* phones: the frame is anchored to the top, so a window shrunk by the keyboard
+   never pushes the game upwards */
+body:not(.is-framed) #stage { align-items: flex-start; }
 
 /* ==================================================================
    Title screen (inside the pixel title world) + intro skip

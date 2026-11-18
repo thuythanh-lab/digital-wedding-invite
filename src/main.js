@@ -63,21 +63,54 @@ async function boot() {
 }
 
 /**
- * On-screen keyboard: browsers that only shrink the *visual* viewport (iOS
- * Safari) would hide the bottom-anchored RSVP box behind the keyboard. Expose
- * the covered height as --kb so the box can sit just above it.
+ * On-screen keyboard (RSVP name field): only the HTML overlay adapts — the
+ * game canvas, camera and current screen are left alone (viewport.js freezes
+ * its layout while a field has focus).
+ *
+ * Works for both kinds of mobile browser: iOS Safari keeps the window size and
+ * shrinks/pans the *visual* viewport; Messenger/Facebook's in-app browser
+ * shrinks the window itself. Either way we measure which part of the game
+ * frame is actually visible and expose it as CSS variables:
+ *   --kb       px of the frame hidden below the visible area (under the keyboard)
+ *   --kb-room  px of the frame that is visible
+ * Event-driven (focus, visualViewport resize/scroll, window resize): no timers.
  */
 function trackKeyboard() {
   const vv = window.visualViewport;
-  if (!vv) return;
-  const update = () => {
-    const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-    const open = kb > 40;
-    document.documentElement.style.setProperty('--kb', `${open ? Math.round(kb) : 0}px`);
-    document.documentElement.classList.toggle('kb-open', open);
+  const root = document.documentElement;
+  const field = () => {
+    const a = document.activeElement;
+    return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && a.closest('#rsvp, #info-modal') ? a : null;
   };
-  vv.addEventListener('resize', update);
-  vv.addEventListener('scroll', update);
+  const update = () => {
+    const input = field();
+    const frame = document.getElementById('frame');
+    if (!input || !frame) {
+      root.classList.remove('kb-open');
+      root.style.removeProperty('--kb');
+      root.style.removeProperty('--kb-room');
+      return;
+    }
+    const fr = frame.getBoundingClientRect();
+    const visTop = Math.max(fr.top, vv ? vv.offsetTop : 0);
+    const visBottom = Math.min(fr.bottom, vv ? vv.offsetTop + vv.height : window.innerHeight);
+    root.style.setProperty('--kb', `${Math.round(Math.max(0, fr.bottom - visBottom))}px`);
+    root.style.setProperty('--kb-room', `${Math.round(Math.max(180, visBottom - visTop))}px`);
+    root.classList.add('kb-open');
+    // keep the field itself in view inside its (now scrollable) panel — never
+    // scrollIntoView, which would also scroll the game frame
+    const panel = input.closest('#rsvp, .pm-box');
+    if (panel) {
+      const pr = panel.getBoundingClientRect(); const ir = input.getBoundingClientRect();
+      if (ir.bottom > pr.bottom - 8) panel.scrollTop += ir.bottom - pr.bottom + 8;
+      else if (ir.top < pr.top + 8) panel.scrollTop -= pr.top + 8 - ir.top;
+    }
+  };
+  vv?.addEventListener('resize', update);
+  vv?.addEventListener('scroll', update);
+  window.addEventListener('resize', update);
+  document.addEventListener('focusin', update);
+  document.addEventListener('focusout', () => setTimeout(update, 0)); // after focus has moved on
   update();
 }
 

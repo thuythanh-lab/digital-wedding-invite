@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { viewport, fitCamera, WORLD_W } from '../utils/viewport.js';
+import { viewport, fitCamera, WORLD_W, editingText } from '../utils/viewport.js';
 import { makeText, refreshTextResolution } from '../utils/text.js';
 import { FONT_TITLE, FONT_BODY } from '../config/theme.js';
 import { MinhCharacter } from '../characters/MinhCharacter.js';
@@ -804,8 +804,44 @@ export class LevelScene extends Phaser.Scene {
     const step = 0.5; const n = Math.max(1, Math.ceil(Math.abs(to - from) / step));
     const cum = [0];
     for (let i = 0; i < n; i++) cum.push(cum[i] + weight(from + (to - from) * ((i + 0.5) / n)));
-    this.play = { from, to, ms: this.reducedMotion ? Math.min(ms, 350) : ms, t0: this.time.now, cum, n, screen };
+    this.play = { from, to, ms: this.reducedMotion ? Math.min(ms, 350) : ms, t0: this.time.now, cum, n, screen, k: 0 };
+    this.buildCamPath();
     this.syncNav();
+  }
+
+  /**
+   * The camera path of the running transition, worked out once up front so it
+   * glides in ONE direction: the follow-camera alone (two characters, one of
+   * them in the pipe) hesitates and snaps back and forth. Envelope from both
+   * ends (monotone, stays close to the raw path) + a moving average (keeps it
+   * monotone, rounds off starts and stops; the end points stay exact).
+   */
+  buildCamPath() {
+    const p = this.play;
+    if (!p) return;
+    const N = Math.max(8, Math.round(p.ms / 16));
+    const raw = [];
+    for (let i = 0; i <= N; i++) raw.push(this.cameraTop(this.playB(i / N)));
+    const dir = Math.sign(raw[N] - raw[0]) || 1;
+    const lim = (v) => (dir > 0 ? Math.min(Math.max(v, raw[0]), raw[N]) : Math.max(Math.min(v, raw[0]), raw[N]));
+    const fwd = []; const bwd = [];
+    for (let i = 0; i <= N; i++) fwd[i] = lim(i ? (dir > 0 ? Math.max(fwd[i - 1], raw[i]) : Math.min(fwd[i - 1], raw[i])) : raw[0]);
+    for (let i = N; i >= 0; i--) bwd[i] = lim(i < N ? (dir > 0 ? Math.min(bwd[i + 1], raw[i]) : Math.max(bwd[i + 1], raw[i])) : raw[N]);
+    const mono = fwd.map((v, i) => (v + bwd[i]) / 2);
+    const R = Math.max(1, Math.round(250 / 16)); // ~250 ms either side
+    p.cam = mono.map((_, i) => {
+      const r = Math.min(R, i, N - i); // shrinking window at the ends keeps them exact
+      let sum = 0;
+      for (let j = i - r; j <= i + r; j++) sum += mono[j];
+      return sum / (2 * r + 1);
+    });
+  }
+
+  /** Camera top of the running transition at its current fraction. */
+  playCam() {
+    const { cam, k } = this.play;
+    const x = k * (cam.length - 1); const i = Math.min(cam.length - 2, Math.floor(x));
+    return cam[i] + (cam[i + 1] - cam[i]) * (x - i);
   }
 
   /** b for elapsed fraction k of the current transition. */
@@ -829,8 +865,26 @@ export class LevelScene extends Phaser.Scene {
     this.syncNav();
   }
 
+  /**
+   * THE navigation state — single source of truth for every input (swipe,
+   * wheel, keys, dots, ▲/▼):
+   *   'intro'          title screen / START animation: no page navigation
+   *   'keyboard-open'  a text field has focus (RSVP name): nothing moves
+   *   'modal-open'     photo viewer / gallery / quick info view is open
+   *   'transitioning'  a page animation is running (a 2nd swipe skips to its end)
+   *   'idle'           resting on one of the four screens
+   */
+  navState() {
+    if (!this.introDone) return 'intro';
+    if (editingText()) return 'keyboard-open';
+    if (this.photos.isOpen || this.quick?.isOpen) return 'modal-open';
+    return this.play || this.fading ? 'transitioning' : 'idle';
+  }
+
+  /** Inputs act only when idle, or to skip a running animation (never during a fade: no queue). */
   canNavigate() {
-    return this.introDone && !this.photos.isOpen && !this.quick?.isOpen;
+    const st = this.navState();
+    return st === 'idle' || (st === 'transitioning' && !this.fading);
   }
 
   goNext() {
@@ -867,14 +921,21 @@ export class LevelScene extends Phaser.Scene {
   fadeJump(b) {
     const cam = this.cameras.main;
     if (this.reducedMotion) { this.settleAt(b); return; }
-    cam.fadeOut(110, 255, 250, 240);
-    cam.once('camerafadeoutcomplete', () => { this.settleAt(b); cam.fadeIn(160, 255, 250, 240); });
+    // one calm ~500 ms page change (fade out, swap, fade in): nothing slides or bounces
+    this.fading = true;
+    this.syncNav();
+    cam.fadeOut(220, 255, 250, 240);
+    cam.once('camerafadeoutcomplete', () => {
+      this.settleAt(b);
+      cam.fadeIn(280, 255, 250, 240);
+      cam.once('camerafadeincomplete', () => { this.fading = false; this.syncNav(); });
+    });
   }
 
   syncNav() {
     // under the RSVP box / end buttons (screen 4) the corner belongs to them
     const show = this.introDone && this.screen < 3;
-    this.nav.setState(this.screen, { show, busy: !!this.play });
+    this.nav.setState(this.screen, { show, busy: !!this.play || !!this.fading });
   }
 
   /** Called only after the backend confirmed. From the quick view (quiet) the game keeps its place. */
@@ -970,7 +1031,10 @@ export class LevelScene extends Phaser.Scene {
     fitCamera(this.cameras.main, l);
     refreshTextResolution(this.texts);
     this.layoutHud();
-    this.layoutFinal();
+    // address bar / toolbar only changed the height: every page stays framed
+    // exactly where it is (no camera jump); real size changes re-compose
+    if (!l.heightOnly) this.layoutFinal();
+    if (this.play) this.buildCamPath();
     if (this.intro?.state === 'title') { this.intro.layout(); this.cameras.main.scrollY = this.intro.cam; }
   }
 
@@ -978,6 +1042,7 @@ export class LevelScene extends Phaser.Scene {
     if (this.introDone) {
       if (this.play) {
         const k = Math.min(1, (time - this.play.t0) / this.play.ms);
+        this.play.k = k;
         this.b = this.playB(k);
         if (k >= 1) { this.b = this.play.to; this.play = null; this.syncNav(); }
       }
@@ -987,14 +1052,11 @@ export class LevelScene extends Phaser.Scene {
     this.ambient(time);
   }
 
-  render(b, delta, initial) {
+  /** Follow-camera at progress b: frame both; when far apart (one in the pipe) follow the one behind. */
+  cameraTop(b) {
     const P = this.path;
-    const eM = this.M.eval(b);
-    const eT = this.H.eval(b);
-    const dM = Math.max(0, eM.d);
-    const dT = eT.d;
-
-    // ---------------- camera: frame both; when far apart (one in the pipe) follow the one behind
+    const dM = Math.max(0, this.M.eval(b).d);
+    const dT = this.H.eval(b).d;
     const fT = P.focus(dT); const fM = P.focus(dM);
     const V = this.layout.height;
     const rear = dM <= dT ? fM : fT;
@@ -1013,7 +1075,16 @@ export class LevelScene extends Phaser.Scene {
     // final screen: ease into the composition worked out in layoutFinal()
     const wF = smooth(ramp(b, this.bF1, this.bR - 4));
     if (wF > 0) top = Phaser.Math.Linear(top, this.finalTop, wF);
-    top = Math.max(-600, Math.min(WORLD_BOTTOM - V, top));
+    return Math.max(-600, Math.min(WORLD_BOTTOM - V, top));
+  }
+
+  render(b, delta, initial) {
+    const eM = this.M.eval(b);
+    const eT = this.H.eval(b);
+    const dM = Math.max(0, eM.d);
+    const dT = eT.d;
+    // camera: during a page transition it rides the precomputed one-way path
+    const top = !initial && this.play?.cam ? this.playCam() : this.cameraTop(b);
     const z = this.cameras.main.zoom;
     this.cameras.main.scrollY = Math.round(top * z) / z;
     if (initial) { this.minh.st.d = dM; this.thuy.st.d = dT; return; }
