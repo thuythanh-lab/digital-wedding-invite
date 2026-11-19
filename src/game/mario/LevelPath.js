@@ -106,7 +106,10 @@ export class LevelPath {
    */
   focus(d) {
     const seg = this.segAt(d);
-    const t = clamp01((d - seg.start) / seg.len);
+    // camHold: the camera waits this far into the segment before it follows
+    // (e.g. until a character has fully disappeared into a pipe)
+    const hold = seg.camHold || 0;
+    const t = clamp01((d - seg.start - hold) / (seg.len - hold));
     const f0 = seg.camFrom ?? seg.y0;
     const f1 = seg.camTo ?? seg.y1;
     const a0 = seg.anchorFrom ?? seg.anchor ?? 0.66;

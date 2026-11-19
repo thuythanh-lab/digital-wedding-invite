@@ -82,7 +82,7 @@ function buildPath() {
     { id: 'gd', type: 'glide', x0: 282, y0: Y0, x1: LAND_X, y1: Y1, h: 16, out: 50, sway: 6, len: 90 },
     { id: 'p1', type: 'run', x0: LAND_X, y0: Y1, x1: 112, y1: Y1, len: LAND_X - 112 },
     { id: 'j2', type: 'jump', x0: 112, y0: Y1, x1: PIPE_X, y1: PIPE_TOP, h: 56, len: 40, camFrom: Y1, camTo: Y1 },
-    { id: 'pipe', type: 'pipe', x0: PIPE_X, y0: PIPE_TOP, x1: PIPE_X, y1: YV, len: 110, camFrom: Y1, camTo: YV },
+    { id: 'pipe', type: 'pipe', x0: PIPE_X, y0: PIPE_TOP, x1: PIPE_X, y1: YV, len: 110, camFrom: Y1, camTo: YV, camHold: 18 },
     { id: 'tube', type: 'run', x0: PIPE_X, y0: YV, x1: 130, y1: YV, len: 70, hideBefore: CLIFF_X + 6, anchorFrom: 0.66, anchorTo: 0.8 },
     // one main floor: venue, RSVP and finish line. At the venue the floor sits low on
     // screen (info card above, no empty band below); render() then eases into the
@@ -307,33 +307,44 @@ export class LevelScene extends Phaser.Scene {
     H.hold(6, { pose: ['stand', 'left'], emote: 'emoteExcl' }); // a pipe!
     const bSpot1 = H.last.b;
     H.move(8, S('j2')); // runs to it
-    cues.push([H.last.b, 'jump']);
-    H.move(16, E('j2'));
-    H.hold(5, { hop: 12, pose: ['jump', 'left'] });
+    const bRun1 = H.last.b;
+    H.hold(3, { pose: ['nod', 'down'] }); // gets ready…
+    const bTJump0 = H.last.b;
+    cues.push([bTJump0, 'jump']);
+    H.move(16, E('j2')); // …a clear jump arc onto the pipe's rim
+    const bTRim = H.last.b;
+    cues.push([bTRim, 'land']);
+    H.hold(4, { pose: ['stand', 'down'] }); // steadies herself on the rim
     const bThuyIn = H.last.b;
     cues.push([bThuyIn, 'pipe']);
-    H.move(20, S('tube')); // whoosh down the pipe…
+    // ~5.5 px of drop per path unit: +13 takes her head just below the rim, so
+    // dress, then veil slip down behind it (the rim and pipe draw over her)
+    H.move(13, S('pipe') + 13);
+    const bThuySunk = H.last.b;
+    H.move(12, S('tube')); // (out of sight) down the pipe…
     H.move(8, D('tube', 96)); // …and waits, hidden, in the side tube
     // B: inspection — Minh climbs onto the rim, taps it twice, listens, looks in
     M.walkTo(D('p1', 140), null, 1.5);
     M.move(10, D('p1', 122)); // cautious
-    M.holdUntil(Math.max(M.last.b + 1, bThuyIn + 2), { pose: ['stand', 'left'] });
-    cues.push([M.last.b, 'jump']);
-    M.move(15, E('j2'));
+    M.holdUntil(Math.max(M.last.b + 1, bThuySunk + 1), { pose: ['stand', 'left'] }); // watches her vanish
+    M.hold(5, { pose: ['stand', 'left'], emote: 'emoteQ' }); // …hmm
+    const bMLook = M.last.b;
+    cues.push([bMLook, 'jump']);
+    M.move(15, E('j2')); // hops up onto the rim
     const bInsp0 = M.last.b;
-    M.hold(3, { pose: ['nod', 'down'] }); // bends a little
+    M.hold(3, { pose: ['nod', 'down'] }); // looks down
     M.hold(3, { pose: ['reach', 'down'] }); // tap…
     const bTap1 = M.last.b - 2;
     M.hold(2, { pose: ['nod', 'down'] });
     M.hold(3, { pose: ['reach', 'down'] }); // …tap
     const bTap2 = M.last.b - 2;
-    M.hold(8, { pose: ['nod', 'down'], emote: 'emoteQ' }); // leans in and listens…
-    const bListen1 = M.last.b;
-    M.hold(8, { pose: ['nod', 'down'] }); // …and looks inside
+    M.hold(6, { pose: ['stand', 'down'] }); // a pause… nothing happens
+    const bPause1 = M.last.b;
+    M.hold(8, { pose: ['nod', 'down'], emote: 'emoteQ' }); // leans in to inspect the opening
     const bRumble = M.last.b;
     cues.push([bTap1, 'tap'], [bTap1, 'fx:tap'], [bTap2, 'tap'], [bTap2, 'fx:tap'], [bRumble, 'rumble']);
-    // C: the unexpected pull — "!", arms fly up, legs kick… gone
-    M.hold(4, { pose: ['stand', 'down'], emote: 'emoteExcl' });
+    // C: the unexpected pull — rumble, "!", arms fly up, legs kick… gone
+    M.hold(5, { pose: ['stand', 'down'], emote: 'emoteExcl' });
     const bPull = M.last.b;
     this.bPull = bPull;
     M.hold(2, { pose: ['offer', 'down'] }); // arms up!
@@ -365,7 +376,7 @@ export class LevelScene extends Phaser.Scene {
     M.hold(11, { adjust: true }); // straightens his jacket
     const bSuit1 = M.last.b;
     beats.push(new Beat('secretPipe', bThuyIn - 50, bMinhOut));
-    Object.assign(this, { bThuyIn, bMinhOut, bTap1, bTap2, bGone });
+    Object.assign(this, { bThuyIn, bThuySunk, bMinhOut, bTap1, bTap2, bGone, bRumble });
 
     // ---- 4 THE SURPRISE BOX — Thủy bumps a mystery block: out pops the invitation (11:00)
     // A: discovery (overlaps Minh's jacket fix)
@@ -487,21 +498,27 @@ export class LevelScene extends Phaser.Scene {
     seg(this.bDate, 250); // notebook away; both idle
     // page 2 -> 3: Pipe Inspection → Surprise Box (one flowing scene)
     pace(bSpot0, 13); // …while Thủy already walks on
-    seg(bSpot1, 500); // a pipe!
-    pace(bThuyIn, 18); // runs and hops straight in
-    pace(bInsp0, 11); // Minh hurries over and climbs up after her
-    seg(bInsp0 + 3, 250); // bends
-    seg(bTap1 + 2, 280); // tap
-    seg(bTap2 - 1 + 0.001, 200);
-    seg(bTap2 + 2, 280); // tap
-    seg(bListen1, 600); // leans in and listens…
-    seg(bRumble, 500); // …looks inside
-    seg(bPull, 330); // rumble — "!"
-    seg(bPull + 2, 120); // arms up
-    seg(bGone, 330); // gone!
-    seg(bDown, 400); // rides down the pipe (camera follows)
-    seg(bThuyOut, 450); // Thủy pops out first and lands
-    seg(bMinhOut, 600); // Minh pops out far too high… lands
+    seg(bSpot1, 300); // a pipe!
+    seg(bRun1, 230); // runs to it
+    seg(bTJump0, 180); // gets ready
+    seg(bTRim, 550); // a clear jump arc onto the rim
+    seg(bThuyIn, 180); // steadies on the rim
+    seg(bThuySunk, 800); // sinks in gradually — dress, then veil, below the rim
+    seg(bMLook, 320); // Minh, beside the pipe: "hmm?"
+    seg(bInsp0, 350); // hops onto the rim
+    seg(bInsp0 + 3, 200); // looks down
+    seg(bTap1 + 2, 200); // tap
+    seg(bTap2 - 1 + 0.001, 140);
+    seg(bTap2 + 2, 200); // tap
+    seg(bPause1, 420); // a pause… nothing happens
+    seg(bRumble, 480); // leans in to inspect the opening
+    seg(bPull, 300); // rumble — "!"
+    seg(bPull + 2, 120); // arms fly up
+    seg(bPull + 10, 260); // dragged in, legs kicking
+    seg(bGone, 180); // gone
+    seg(bDown, 540); // rides down the pipe (camera follows)
+    seg(bThuyOut, 360); // Thủy pops out first and lands
+    seg(bMinhOut, 480); // Minh pops out far too high… lands
     seg(bMinhOut + 5, 300); // dishevelled wobble
     seg(this.bBoxSeen - 7, 550); // jacket fix · she walks under the block
     seg(this.bBoxSeen, 550); // she looks up: ?
@@ -726,7 +743,7 @@ export class LevelScene extends Phaser.Scene {
     const bodyTop = PIPE_TOP + 20;
     const elbowY = YV - 60;
     this.add.tileSprite(PIPE_X, bodyTop, 24, (elbowY - bodyTop) / ART, 'pipeBody').setOrigin(0.5, 0).setScale(ART).setDepth(DEPTH.pipe);
-    this.add.image(PIPE_X, PIPE_TOP, 'pipeRim').setOrigin(0.5, 0).setScale(ART).setDepth(DEPTH.pipe + 1);
+    this.pipeRimTop = this.add.image(PIPE_X, PIPE_TOP, 'pipeRim').setOrigin(0.5, 0).setScale(ART).setDepth(DEPTH.pipe + 1);
     const g = this.add.graphics().setDepth(DEPTH.pipe);
     const x0 = PIPE_X - 24; const len = CLIFF_X - x0;
     g.fillStyle(0x3b2620).fillRect(x0 - 2, elbowY - 2, len + 2, 62);
@@ -1138,13 +1155,25 @@ export class LevelScene extends Phaser.Scene {
     for (let i = 0; i <= N; i++) fwd[i] = lim(i ? (dir > 0 ? Math.max(fwd[i - 1], raw[i]) : Math.min(fwd[i - 1], raw[i])) : raw[0]);
     for (let i = N; i >= 0; i--) bwd[i] = lim(i < N ? (dir > 0 ? Math.min(bwd[i + 1], raw[i]) : Math.max(bwd[i + 1], raw[i])) : raw[N]);
     const mono = fwd.map((v, i) => (v + bwd[i]) / 2);
-    const R = Math.max(1, Math.round(250 / 16)); // ~250 ms either side
-    p.cam = mono.map((_, i) => {
-      const r = Math.min(R, i, N - i); // shrinking window at the ends keeps them exact
+    // Moving average that looks back ~250 ms but only ~50 ms ahead: the camera
+    // eases after the action instead of anticipating it (it stays on the pipe's
+    // rim until Minh has fully disappeared, then follows him down).
+    const R = Math.max(1, Math.round(250 / 16));
+    const lead = 3;
+    const cam = mono.map((_, i) => {
+      const rb = Math.min(R, i); const rf = Math.min(lead, i, N - i);
       let sum = 0;
-      for (let j = i - r; j <= i + r; j++) sum += mono[j];
-      return sum / (2 * r + 1);
+      for (let j = i - rb; j <= i + rf; j++) sum += mono[j];
+      return sum / (rb + rf + 1);
     });
+    // the lag leaves the last samples short of the end: ease the remainder in
+    // over the final ~250 ms (still one-way, ends exactly on the page's framing)
+    const miss = mono[N] - cam[N];
+    for (let i = Math.max(0, N - R); i <= N; i++) {
+      const u = R ? (i - (N - R)) / R : 1;
+      cam[i] += miss * u * u * (3 - 2 * u);
+    }
+    p.cam = cam;
   }
 
   /** Camera top of the running transition at its current fraction. */
@@ -1370,8 +1399,13 @@ export class LevelScene extends Phaser.Scene {
     const dT = this.H.eval(b).d;
     const fT = P.focus(dT); const fM = P.focus(dM);
     const V = this.layout.height;
-    const rear = dM <= dT ? fM : fT;
-    const w = ramp(Math.abs(fT.y - fM.y), 0.3 * V, 0.55 * V);
+    let rear = dM <= dT ? fM : fT;
+    let w = ramp(Math.abs(fT.y - fM.y), 0.3 * V, 0.55 * V);
+    // someone already out of sight inside the pipe doesn't pull the camera:
+    // it stays on the one still outside (Minh inspecting the rim, Thủy at the exit)
+    const hidden = (d) => { const q = P.at(d); return (q.type === 'pipe' && d - q.seg.start > 12) || (q.seg.hideBefore != null && q.x < q.seg.hideBefore); };
+    const hT = hidden(dT); const hM = hidden(dM);
+    if (hT !== hM) { rear = hT ? fM : fT; w = 1; }
     const fy = Phaser.Math.Linear((fT.y + fM.y) / 2, rear.y, w);
     const fa = Phaser.Math.Linear((fT.anchor + fM.anchor) / 2, rear.anchor, w);
     let top = fy - fa * V;
@@ -1408,6 +1442,8 @@ export class LevelScene extends Phaser.Scene {
     // ---------------- environment linked to progress
     this.drawSurpriseBox(b);
     this.drawCalendar(b);
+    const rumble = !this.reducedMotion && b > this.bRumble && b < this.bPull + 2;
+    this.pipeRimTop.x = PIPE_X + (rumble ? Math.round(Math.sin(this.time.now / 28)) : 0);
     const fr = ramp(b, this.bFix0 + 2, this.bFix1 - 2);
     this.tallFlower.setRotation((1 - fr) * 0.5);
     this.flowerSparkle.setVisible(b > this.bFix1 && b < this.bFlowerDone + 4 && Math.floor(this.time.now / 160) % 2 === 0);
