@@ -1383,11 +1383,25 @@ export class LevelScene extends Phaser.Scene {
     const l = this.layout;
     const k = l.cssToLogical;
     const dlg = this.dialog.measure();
-    const card = this.measureCard();
     // top bar: the HUD pill (canvas) and the THIỆP / music buttons (DOM, 10 + 44 px)
     const hudBottom = Math.max((l.safe.top + 10 + HUD_H) / k, l.safeCss.top + 54);
     const charH = 100 / k;
     const floor = Math.min(0.72 * l.cssH, l.cssH - l.safeCss.bottom - dlg - 18);
+    // The card has to fit between the top bar and the couple's heads. On phones
+    // whose browser leaves less height (Android address bar + navigation /
+    // Samsung Internet toolbar: often 640-700 CSS px visible on a 360-wide
+    // phone) it steps down to a compact, then a tight style — same content,
+    // text never below 15 px — measured, not guessed from a breakpoint.
+    // 14 = room for the card's tag above it; 6 = air; 74 logical ≈ head + hair.
+    const fits = (h) => hudBottom + 14 + h + 6 <= floor - 74 / k;
+    const el = this.venueCard;
+    el.classList.remove('is-compact', 'is-tight', 'is-mini');
+    let card = this.measureCard();
+    for (const step of ['is-compact', 'is-tight', 'is-mini']) {
+      if (fits(card)) break;
+      el.classList.add(step);
+      card = this.measureCard();
+    }
     const slack = Math.max(0, floor - charH - hudBottom - card - 20);
     const cardTop = hudBottom + 14 + slack * 0.35; // 14: room for the card's tag under the top bar
     this.finalTop = YV - floor * k;

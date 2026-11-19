@@ -676,7 +676,12 @@ body.is-framed #frame {
     opacity 0.45s ease 0.15s, visibility 0s linear 0.6s;
 }
 #venue-card.is-folded .ic-map { pointer-events: none; }
-#venue-card .ic-fold { pointer-events: auto; display: block; margin: 8px auto 0; font-size: 15px; padding: 5px 12px 4px; }
+/* "THU GỌN ▼": a small tab on the card's top edge (like the TIỆC CƯỚI tag), so the
+   reopened card is exactly as tall as the one the layout made room for */
+#venue-card .ic-fold {
+  pointer-events: auto; position: absolute; top: -17px; right: 8px; margin: 0;
+  min-height: 0; padding: 4px 8px 3px; font-size: 14px; line-height: 1;
+}
 #venue-card .ic-fold[hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { #venue-card, #venue-card.is-folded { transition: none; } }
 
@@ -752,6 +757,30 @@ body.is-framed #frame {
 }
 @media (prefers-reduced-motion: reduce) { #venue-card .ic-time.is-fresh { animation: none; } }
 #venue-card .ic-map { pointer-events: auto; }
+
+/* the in-game card when the screen leaves little room above the couple (set by
+   layoutFinal from the measured space): compact, then tight — same content */
+#venue-card.is-compact { padding: 15px 12px 8px; }
+#venue-card.is-compact .ic-names { font-size: 28px; }
+#venue-card.is-compact .ic-time { margin-top: 3px; font-size: 16px; }
+#venue-card.is-compact .ic-date { font-size: 25px; line-height: 1.1; }
+#venue-card.is-compact .ic-venue { margin-top: 4px; padding-top: 0; border-top: 0; font-size: 16px; }
+#venue-card.is-compact .ic-addr { font-size: 16px; line-height: 1.3; }
+#venue-card.is-compact .ic-map { margin-top: 6px; font-size: 20px; padding: 7px 14px 5px; }
+#venue-card.is-tight { padding: 13px 10px 6px; }
+#venue-card.is-tight .ic-names { font-size: 24px; }
+#venue-card.is-tight .ic-time { margin-top: 2px; font-size: 15px; line-height: 1.2; }
+#venue-card.is-tight .ic-date { font-size: 22px; line-height: 1.05; }
+#venue-card.is-tight .ic-venue { margin-top: 3px; padding-top: 0; border-top: 0; font-size: 15px; letter-spacing: 2px; }
+#venue-card.is-tight .ic-addr { font-size: 15px; line-height: 1.25; }
+#venue-card.is-tight .ic-map { margin-top: 4px; min-height: 40px; font-size: 18px; padding: 5px 12px 4px; }
+/* smallest phones (e.g. 320 × 568) only */
+#venue-card.is-mini { padding: 11px 10px 5px; }
+#venue-card.is-mini .ic-names { font-size: 21px; }
+#venue-card.is-mini .ic-time { margin-top: 1px; }
+#venue-card.is-mini .ic-date { font-size: 20px; line-height: 1.05; }
+#venue-card.is-mini .ic-addr { line-height: 1.2; }
+#venue-card.is-mini .ic-map { margin-top: 3px; min-height: 36px; font-size: 17px; padding: 4px 10px 3px; }
 
 /* short phones: tighter, still never below 16px for the facts */
 @media (max-height: 640px) {
