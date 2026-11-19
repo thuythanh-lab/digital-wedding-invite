@@ -15,10 +15,12 @@ import { MARIO_TEXT as T } from '../config/mario.vi.js';
  * sent to the RSVP backend.
  */
 // Relative URLs (no leading "/") so they also work under a GitHub Pages sub-path.
-// Originals: public/assets/images/*.png (01 Golden Hour Lift in the Garden ·
-// 02 Golden-Hour Wedding Embrace · 03 Handmade Wedding Collage for Thủy and Minh).
+// Originals: 01 "Untitled Session30528.jpg" (landscape, replaced Golden Hour Lift in
+// the Garden; new file name so no browser keeps showing the old photo) ·
+// public/assets/images/*.png: 02 Golden-Hour Wedding Embrace · 03 Handmade Wedding
+// Collage for Thủy and Minh.
 export const PHOTOS = [
-  { id: 1, src: 'assets/photos/wedding-photo-01.jpg', thumb: 'assets/photos/wedding-photo-01-thumb.jpg', hint: T.photoHint1 },
+  { id: 1, src: 'assets/photos/wedding-photo-01-v2.jpg', thumb: 'assets/photos/wedding-photo-01-v2-thumb.jpg', hint: T.photoHint1 },
   { id: 2, src: 'assets/photos/wedding-photo-02.jpg', thumb: 'assets/photos/wedding-photo-02-thumb.jpg', hint: T.photoHint2 },
   { id: 3, src: 'assets/photos/wedding-photo-03.jpg', thumb: 'assets/photos/wedding-photo-03-thumb.jpg', hint: T.photoHint3 },
 ];
