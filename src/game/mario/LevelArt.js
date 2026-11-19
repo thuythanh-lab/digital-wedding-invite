@@ -268,6 +268,13 @@ export function createLevelArt(scene) {
     r(15, 0, 1, 11, PAL.terraDark);
     bitmap(r, [' 1 1 ', '11111', '11111', ' 111 ', '  1  '], { 1: PAL.ivory }, 6, 3);
   });
+  // …and the plain finish flag it starts as (it turns into the heart flag after the RSVP)
+  canvasTex(scene, 'flagPlain', 16, 11, ({ r }) => {
+    r(0, 0, 16, 11, PAL.terracotta);
+    for (let y = 0; y < 10; y += 2) for (let x = (y / 2) % 2 ? 2 : 0; x < 15; x += 4) r(x, y, 2, 2, PAL.ivory);
+    r(0, 10, 16, 1, PAL.terraDark);
+    r(15, 0, 1, 11, PAL.terraDark);
+  });
   canvasTex(scene, 'poleCap', 6, 6, ({ r }) => {
     r(1, 0, 4, 6, PAL.goldLight); r(0, 1, 6, 4, PAL.goldLight); r(4, 1, 1, 4, PAL.goldDark); r(1, 1, 1, 1, PAL.white);
   });

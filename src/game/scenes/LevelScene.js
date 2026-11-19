@@ -51,12 +51,15 @@ const PIPE_TOP = Y1 - 44; // rim on the date platform
 const CLIFF_X = 104; // right face of the earth column the pipe runs down
 const MOUTH_X = 114; // side-facing pipe mouth on the venue floor
 const WARM_Y = Y1 + 330; // sky gives way to the warm garden light
-const FINISH_X = 216; // little checkered finish line on the venue floor
+const FINISH_X = 186; // little checkered finish line on the venue floor (just left of the arch)
 const TURTLE_FROM = 96; // the late turtle comes out of the pipe mouth…
-const TURTLE_STOP = 226; // …and stops just over the line, clear of Thủy (x 266)
+const TURTLE_STOP = 198; // …and stops just over the line, beside the arch (clear of the couple)
 const POLE_X = 306;
 const CAL = { x: 46, y: 606, w: 194, h: 164 }; // the wall calendar (a mystery block until Thủy bumps it)
 const CAL_DATES = ['22.12.2026', '23.12.2026']; // pages it flips through before the wedding date
+const ARCH_X = 202; // the garden wedding arch: left edge (world px)…
+const ARCH_W = 88; //  …width (44 art px) — the couple end up inside it (Minh 230, Thủy 262)
+const ARCH_H = 128; // …height ≈ 1.85 × the characters
 const BOX_X = 184; // the Surprise Box floats over the venue floor…
 const BOX_Y = YV - 90; // …just above Thủy's head (she can bump it from below)
 const HUD_H = 30; // compact HUD pill (logical units)
@@ -440,37 +443,41 @@ export class LevelScene extends Phaser.Scene {
     H.holdUntil(bR, { face: 'down' });
     this.bR = bR;
 
-    // ---- THE FINISH LINE (same screen): Minh dashes past her to the flag…
-    M.key(bR + 30, D('gl', 296));
-    M.hold(14, { hop: 22, pose: ['wave', 'down'], celebrate: true }); // victory jump at the pole
-    M.hold(6, { pose: ['stand', 'left'] });
-    // …Thủy notices the flag is crooked and straightens it
-    H.holdUntil(bR + 44, { face: 'down' });
-    H.hold(10, { pose: ['stand', 'right'], emote: 'emoteExcl' });
-    H.move(14, D('gl', 266));
-    const bFlag0 = H.last.b;
-    H.hold(18, { pose: ['reach', 'up'] });
-    const bFlag1 = H.last.b;
-    H.hold(8, { pose: ['stand', 'right'] });
-    const bTogether = H.last.b;
-    M.holdUntil(bTogether, { pose: ['stand', 'left'] });
-    H.hold(18, { hop: 16, pose: ['flare', 'down'], celebrate: true });
-    M.hold(18, { hop: 16, pose: ['wave', 'down'], celebrate: true });
-    H.hold(14, { pose: ['raise', 'down'] }); // both wave to the guest
-    M.hold(14, { pose: ['wave', 'down'] });
-    // …a short pause, then — finally — the turtle pokes out of the pipe and crosses the line.
-    const bTurtle0 = bTogether + 18 + 10;
-    const bTurtle1 = bTurtle0 + 44;
-    const bCross = bTurtle0 + 44 * ((FINISH_X - TURTLE_FROM) / (TURTLE_STOP - TURTLE_FROM));
+    // ---- THE GARDEN ARCH ENDING (after a confirmed RSVP; the info card has folded away)
+    // vines grow along the arch → flowers bloom (upper-left, then lower-right) while
+    // the couple step inside → they look up, turn to each other (a heart) → the
+    // flag turns into a heart → they wave to the guest (hearts) → the turtle, late.
+    const bVine0 = bR; const bVine1 = bR + 12;
+    const bBloomA0 = bR + 12; const bBloomA1 = bR + 21; // upper-left cluster
+    const bBloomB0 = bR + 18; const bBloomB1 = bR + 28; // lower-right cluster
+    M.holdUntil(bR + 6, { face: 'down' });
+    H.holdUntil(bR + 4, { face: 'down' });
+    M.key(bR + 22, D('gl', 230)); // they step in under the arch…
+    H.key(bR + 20, D('gl', 262));
+    M.holdUntil(bBloomB1 + 5, { pose: ['stand', 'up'] }); // …and look up at the flowers
+    H.holdUntil(bBloomB1 + 5, { pose: ['stand', 'up'] });
+    M.hold(7, { pose: ['stand', 'right'] }); // turn to each other…
+    H.hold(7, { pose: ['stand', 'left'], emote: 'emoteHeart' }); // …a heart
+    const bFlag0 = bR + 36; const bFlag1 = bR + 40; // the flag straightens and turns into a heart
+    const bTogether = H.last.b; // = bR + 40
+    H.hold(12, { hop: 12, pose: ['flare', 'down'], celebrate: true }); // wave to the guest
+    M.hold(12, { hop: 12, pose: ['wave', 'down'], celebrate: true });
+    H.hold(8, { pose: ['raise', 'down'] });
+    M.hold(8, { pose: ['wave', 'down'] });
+    // …and — finally — the turtle pokes out of the pipe and crosses the line
+    const bTurtle0 = bTogether + 10;
+    const bTurtle1 = bTurtle0 + 40;
+    const bCross = bTurtle0 + 40 * ((FINISH_X - TURTLE_FROM) / (TURTLE_STOP - TURTLE_FROM));
     const bEnd = bTurtle1 + 4;
     H.holdUntil(bEnd + 40, { face: 'down' });
     M.holdUntil(bEnd + 40, { face: 'down' });
-    cues.push([bFlag0 + 2, 'flowerFix']);
-    cues.push([bTogether + 2, 'victory'], [bTogether + 3, 'fx:hearts']);
+    cues.push([bVine0 + 1, 'unfold'], [bBloomA0 + 1, 'pop'], [bBloomB0 + 2, 'pop'], [bR + 34, 'fx:loveHeart']);
+    cues.push([bFlag0 + 2, 'chime'], [bFlag0 + 2, 'fx:flagSpark']);
+    cues.push([bTogether + 1, 'victory'], [bTogether + 2, 'fx:hearts']);
     cues.push([bTurtle0 + 4, 'turtle']);
     cues.push([bCross, 'check']); // the turtle's tiny victory
-    beats.push(new Beat('finishLine', bR + 30, bEnd));
-    Object.assign(this, { bFlag0, bFlag1, bTogether, bEnd, bTurtle0, bTurtle1 });
+    beats.push(new Beat('finishLine', bR, bEnd));
+    Object.assign(this, { bVine0, bVine1, bBloomA0, bBloomA1, bBloomB0, bBloomB1, bFlag0, bFlag1, bTogether, bEnd, bTurtle0, bTurtle1 });
 
     // ---- PLAYBACK TIMING: real milliseconds per stretch of the timeline, set
     // beat by beat (ENTER -> PERFORM -> SETTLE) instead of one speed for all:
@@ -536,16 +543,12 @@ export class LevelScene extends Phaser.Scene {
     seg(this.bFix1 + 5, 350); // steps back
     seg(this.bFlowerDone, 700); // inspects it: perfect
     pace(bR, 24); // both walk to their RSVP spots
-    // after the RSVP: finish line and the late turtle
-    seg(bR + 30, 600); // Minh dashes to the flag
-    seg(bR + 44, 650); // victory jump
-    seg(bR + 54, 550); // Thủy notices the flag is crooked
-    seg(bFlag0, 400); // walks over
-    seg(bFlag1, 750); // straightens it
-    seg(bTogether, 400); // pause
-    seg(bTogether + 18, 550); // they celebrate together
-    seg(bTurtle0, 450); // wave to the guest… and wait
-    seg(bTurtle1, 1500); // the turtle finally waddles across the line
+    // after the RSVP: the garden arch ending (≈ 5.2 s)
+    seg(bVine1, 1000); // vines grow along the arch (the couple start to step in)
+    seg(bBloomB1, 1200); // flowers bloom: upper-left first, then lower-right
+    seg(bTogether, 800); // they look up, turn to each other — a heart; the flag becomes a heart
+    seg(bTogether + 12, 800); // they wave to the guest (hearts)
+    seg(bTurtle1, 1250); // the turtle finally waddles across the line
     seg(bEnd, 150);
     this.timing = T;
 
@@ -718,11 +721,12 @@ export class LevelScene extends Phaser.Scene {
     pole.fillStyle(0x3b2620).fillRect(POLE_X - 10, YV - 6, 20, 6);
     this.add.image(POLE_X, YV - 82, 'poleCap').setOrigin(0.5, 1).setScale(ART).setDepth(DEPTH.props + 1);
     // the flag flies to the left of the pole (towards the couple)
-    this.flag = this.add.image(POLE_X - 2, YV - 78, 'flag').setOrigin(1, 0).setFlipX(true).setScale(ART).setDepth(DEPTH.props);
+    this.flag = this.add.image(POLE_X - 2, YV - 78, 'flagPlain').setOrigin(1, 0).setFlipX(true).setScale(ART).setDepth(DEPTH.props);
     const fin = this.add.graphics().setDepth(DEPTH.ground + 2); // checkered finish line
     for (let yy = 0; yy < 4; yy++) for (let xx = 0; xx < 2; xx++) {
       fin.fillStyle((xx + yy) % 2 ? 0x3b2620 : 0xfffaf0).fillRect(FINISH_X - 6 + xx * 6, YV + yy * 3, 6, 3);
     }
+    this.buildArch();
     // the late turtle waits inside the pipe (hidden behind its mouth) until the very end
     this.turtle = this.add.image(TURTLE_FROM, YV + 1, 'turtle0').setOrigin(0.5, 1).setScale(ART).setDepth(DEPTH.pipe - 1);
   }
@@ -781,12 +785,13 @@ export class LevelScene extends Phaser.Scene {
       g.fillStyle(0xb9d3a4).fillCircle(cx - r * 0.3, cy - r * 0.35, r * 0.26);
       for (let k = 0; k < 5; k++) g.fillStyle(k % 2 ? 0xe7a29a : 0xf8f0dd).fillRect(Math.round(cx + rng.between(-r, r) * 0.7), Math.round(cy + rng.between(-r, r) * 0.35), 4, 4);
     };
-    [[176, Y1 + 300, 14], [278, Y1 + 260, 16]].forEach(([x, top, w]) => {
+    // (the right-hand tree stands beyond the flag pole, so the wedding arch has room)
+    [[176, Y1 + 300, 14], [332, Y1 + 260, 16]].forEach(([x, top, w]) => {
       g.fillStyle(0x6b4529).fillRect(x - w / 2, top, w, YV - top + 4);
       g.fillStyle(0x9a6a43).fillRect(x - w / 2, top, 4, YV - top + 4);
     });
     crown(176, Y1 + 300, 44);
-    crown(278, Y1 + 262, 50);
+    crown(332, Y1 + 262, 50);
     // soft, warm light slanting into the garden (no flash, just translucent rays)
     const rays = this.add.graphics().setDepth(DEPTH.deco + 1);
     [[330, 0.12], [262, 0.09]].forEach(([x, a]) => rays.fillStyle(0xffdc8a, a).fillTriangle(x, WARM_Y, x + 36, WARM_Y, x - 90, YV));
@@ -1530,8 +1535,11 @@ export class LevelScene extends Phaser.Scene {
     const fr = ramp(b, this.bFix0 + 2, this.bFix1 - 2);
     this.tallFlower.setRotation((1 - fr) * 0.5);
     this.flowerSparkle.setVisible(b > this.bFix1 && b < this.bFlowerDone + 4 && Math.floor(this.time.now / 160) % 2 === 0);
-    const fl = ramp(b, this.bFlag0 + 2, this.bFlag1 - 2);
-    this.flag.setRotation((1 - fl) * -0.45); // droops until Thủy straightens it
+    const fl = ramp(b, this.bFlag0, this.bFlag1);
+    this.flag.setRotation((1 - fl) * -0.45); // droops… then straightens as it turns into a heart
+    const heartFlag = b >= this.bFlag0 + 2;
+    if (this._heartFlag !== heartFlag) { this._heartFlag = heartFlag; this.flag.setTexture(heartFlag ? 'flag' : 'flagPlain'); }
+    this.drawArch(b);
     // finish turtle: waddles out of the pipe mouth after everyone has celebrated
     const tb = ramp(b, this.bTurtle0, this.bTurtle1);
     this.turtle.x = Phaser.Math.Linear(TURTLE_FROM, TURTLE_STOP, tb);
@@ -1793,11 +1801,116 @@ export class LevelScene extends Phaser.Scene {
     }
   }
 
+  // ================================================================ garden wedding arch
+  /**
+   * An original pixel-art garden arch (2-px "art pixels", like the rest of the
+   * level): light champagne wood, sage vines, ivory / blush flowers with pale
+   * yellow hearts. Before the RSVP: the frame with a few leaves and buds at its
+   * feet. After a confirmed RSVP the vines climb pixel by pixel from both feet
+   * and the two flower clusters bloom (upper-left first) — all a pure function
+   * of progress, so skipping / revisiting simply shows the right state.
+   */
+  buildArch() {
+    const U = ART; const w = ARCH_W / U; const h = ARCH_H / U; // 44 × 64 art px
+    const c = (w - 1) / 2;
+    const topY = (x) => -h + Math.round(14 * ((x - c) / c) ** 2); // gentle curve (−64 … −50)
+    this.archTopY = topY;
+    // vine path: up the left post, over the top, down the right post (art px, relative to x0 / floor)
+    const path = [];
+    for (let y = -1; y > topY(0) + 1; y--) path.push([-1 + (Math.floor(-y / 3) % 2), y]);
+    for (let x = 0; x < w; x++) path.push([x, topY(x) - 1 + (Math.floor(x / 3) % 2)]);
+    for (let y = topY(w - 1) + 2; y < 0; y++) path.push([w + (Math.floor(-y / 3) % 2), y]);
+    this.archPath = path;
+    // flowers: [x, y, size 1|2, colour, cluster ('base' | 'A' upper-left | 'B' lower-right | 'S' scattered), order]
+    const F = [];
+    const near = (k) => path[Math.round(k * (path.length - 1))];
+    // upper-left cluster (a little larger)
+    [[2, -52, 2, 'i'], [6, -57, 2, 'b'], [10, -60, 2, 'i'], [3, -46, 2, 'b'], [8, -52, 1, 'y'], [13, -62, 1, 'b'],
+      [0, -58, 1, 'i'], [5, -63, 1, 'i'], [11, -55, 1, 'b'], [16, -64, 1, 'i'], [1, -40, 1, 'i'], [7, -47, 1, 'b']]
+      .forEach(([x, y, sz, col], i) => F.push([x, y, sz, col, 'A', i]));
+    // lower-right cluster (smaller blossoms + trailing greenery), below the flag
+    [[46, -20, 2, 'b'], [43, -15, 1, 'i'], [47, -12, 1, 'y'], [44, -24, 1, 'i'], [41, -19, 1, 'b'], [45, -9, 1, 'i']]
+      .forEach(([x, y, sz, col], i) => F.push([x, y, sz, col, 'B', i]));
+    // a few small flowers along the top
+    [0.42, 0.55, 0.68].forEach((k, i) => { const [x, y] = near(k); F.push([x, y - 1, 1, i % 2 ? 'b' : 'i', 'S', i]); });
+    // before the RSVP: buds at the feet
+    [[0, -6, 1, 'i'], [w - 1, -9, 1, 'b'], [-1, -13, 1, 'i']].forEach(([x, y, sz, col], i) => F.push([x, y, sz, col, 'base', i]));
+    this.archFlowers = F;
+    this.archG = this.add.graphics().setDepth(DEPTH.props - 2); // behind the couple, the flag and the flower
+    this._archKey = '';
+  }
+
+  drawArch(b) {
+    const vine = ramp(b, this.bVine0, this.bVine1);
+    const bloomA = ramp(b, this.bBloomA0, this.bBloomA1);
+    const bloomB = ramp(b, this.bBloomB0, this.bBloomB1);
+    const path = this.archPath; const L = path.length;
+    const grow = Math.round((0.12 + 0.88 * vine) * (L / 2)); // pixels of vine from each foot (12 % already there)
+    const stage = (t, i, n) => { const v = t * (n + 2) - i; return v <= 0 ? 0 : v < 1 ? 1 : 2; }; // 0 hidden · 1 bud · 2 open
+    const fl = this.archFlowers.map(([, , , , cl, i]) => {
+      if (cl === 'base') return 2;
+      if (cl === 'A') return stage(bloomA, i, 12);
+      if (cl === 'B') return stage(bloomB, i, 6);
+      return stage(bloomB, i * 2, 6);
+    });
+    const key = `${grow}|${fl.join('')}`;
+    if (key === this._archKey) return;
+    this._archKey = key;
+
+    const g = this.archG; g.clear();
+    const U = ART; const x0 = ARCH_X; const y0 = YV;
+    const px = (x, y, col, ww = 1, hh = 1) => g.fillStyle(col).fillRect(x0 + x * U, y0 + y * U, ww * U, hh * U);
+    const w = ARCH_W / U; const topY = this.archTopY;
+    const WOOD_D = 0x8f6a25; const WOOD = 0xe2c993; const WOOD_L = 0xf6e7c4; const WOOD_S = 0xc8a466;
+    // posts (3 px) with little feet
+    [[0, 1], [w - 3, -1]].forEach(([x]) => {
+      for (let y = topY(x) + 3; y < 0; y++) { px(x, y, WOOD_D); px(x + 1, y, WOOD); px(x + 2, y, WOOD_S); }
+      px(x + 1, topY(x) + 4, WOOD_L, 1, Math.max(1, -topY(x) - 8)); // highlight
+      px(x - 1, -2, WOOD_D, 5, 2); px(x, -2, WOOD_S, 3, 1);
+    });
+    // curved top beam (3 px thick)
+    for (let x = 0; x < w; x++) { const t = topY(x); px(x, t, WOOD_D); px(x, t + 1, x % 4 ? WOOD : WOOD_L); px(x, t + 2, WOOD_S); }
+    // vines, climbing from both feet
+    const LEAF = 0x8fb07e; const LEAF_L = 0xb9d3a4; const VINE = 0x5d7f55;
+    const drawVine = (i) => {
+      const [x, y] = path[i]; px(x, y, VINE);
+      if (i % 6 === 3) { const side = i % 12 === 3 ? -1 : 1; px(x + side, y, LEAF); px(x + side, y - 1, LEAF_L); }
+    };
+    for (let i = 0; i < Math.min(grow, Math.ceil(L / 2)); i++) drawVine(i);
+    for (let i = L - 1; i >= Math.max(L - grow, Math.ceil(L / 2)); i--) drawVine(i);
+    // trailing greenery under the lower-right cluster (with that cluster)
+    const tB = ramp(b, this.bBloomB0, this.bBloomB1);
+    if (tB > 0) {
+      [[42, -22], [45, -17], [40, -16], [46, -25]].slice(0, Math.ceil(tB * 4)).forEach(([x, y]) => { px(x, y, LEAF, 2, 1); px(x, y + 1, VINE); });
+      for (let k = 0; k < Math.round(tB * 7); k++) { px(w + 1, -12 + k, VINE); if (k % 2) px(w + 2, -12 + k, LEAF); }
+    }
+    // foliage behind the upper-left cluster
+    const tA = ramp(b, this.bBloomA0, this.bBloomA1);
+    if (tA > 0) {
+      [[2, -54], [5, -59], [9, -62], [12, -64], [0, -49], [4, -61], [7, -55], [-1, -44], [14, -60], [2, -44]]
+        .slice(0, Math.ceil(tA * 10)).forEach(([x, y]) => { px(x, y, LEAF, 2, 1); px(x + 1, y + 1, VINE); px(x - 1, y + 1, LEAF_L); });
+    }
+    // flowers
+    const COL = { i: [0xf8f0dd, 0xecc96a], b: [0xe7a29a, 0xf8f0dd], y: [0xf6e08a, 0xd27756] };
+    this.archFlowers.forEach(([x, y, sz, c], k) => {
+      const st = fl[k]; if (!st) return;
+      const [petal, mid] = COL[c];
+      if (st === 1) { px(x, y, c === 'b' ? 0xd27756 : LEAF_L); return; } // a bud
+      if (sz === 2) { px(x - 1, y, petal, 3, 1); px(x, y - 1, petal, 1, 3); px(x - 1, y - 1, petal); px(x + 1, y + 1, petal); px(x, y, mid); }
+      else { px(x - 1, y, petal); px(x + 1, y, petal); px(x, y - 1, petal); px(x, y + 1, petal); px(x, y, mid); }
+    });
+  }
+
   /** One-shot visual cues on the timeline (played forward only, never when skipping). */
   fxCue(name) {
     if (name === 'dustMinh') this.burst(this.minh.x, this.minh.y - 2, 'dust', 6);
     if (name === 'dustThuy') this.burst(this.thuy.x, this.thuy.y - 2, 'dust', 4);
     if (name === 'tap') this.burst(PIPE_X + 16, PIPE_TOP + 4, 'sparkle', 3); // knock, knock
+    if (name === 'loveHeart' && !this.reducedMotion) { // a little heart between them
+      const h = this.add.image((this.minh.x + this.thuy.x) / 2, this.minh.y - 66, 'heart').setScale(ART).setDepth(DEPTH.fx + 2);
+      this.tweens.add({ targets: h, y: h.y - 30, alpha: { from: 1, to: 0 }, scale: ART * 1.3, duration: 1400, ease: 'Sine.easeOut', onComplete: () => h.destroy() });
+    }
+    if (name === 'flagSpark') this.burst(POLE_X - 18, YV - 68, 'sparkle', 5);
     if (name === 'hearts' && !this.reducedMotion) {
       // a few small hearts float up from the couple (warm for every answer)
       [[this.minh, -10], [this.thuy, 8], [this.minh, 14], [this.thuy, -14], [this.minh, 2]].forEach(([ch, dx], i) => {
