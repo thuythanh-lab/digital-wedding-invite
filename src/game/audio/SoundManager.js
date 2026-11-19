@@ -10,6 +10,21 @@ function readMuted() {
   }
 }
 
+/** A quarter second of silence as a WAV blob (for the older-iOS audio-session trick). */
+function silentWavUrl() {
+  const sr = 8000; const n = sr / 4;
+  const buf = new ArrayBuffer(44 + n); const v = new DataView(buf);
+  const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVE'); w(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  w(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+
+const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 function writeMuted(v) {
   try {
     window.localStorage.setItem(STORAGE_KEY, v ? '1' : '0');
@@ -40,13 +55,24 @@ class SoundManager {
     this.loopRegions = {}; // key → { start, duration } without leading/trailing silence
     this.ambience = null;
     this.listeners = new Set();
+    this.problemListeners = new Set();
     this._noiseBuffer = null;
+    this.started = false; // the guest pressed BẮT ĐẦU (sound is wanted from here on)
+    this.wanted = null; // the music that should be playing { key, opts }
+    this.musicDefs = {};
+    this.musicError = null;
   }
 
   attach(game) {
     this.game = game;
     game.sound.mute = this.muted;
     game.sound.pauseOnBlur = true;
+    // Any later gesture revives audio that the browser suspended or iOS
+    // "interrupted" (app switch, call, Messenger overlay…): Phaser only tries
+    // once on focus, which iOS may refuse without a gesture.
+    const revive = () => { if (this.started && !this.running) this.unlock(); };
+    ['pointerdown', 'touchend', 'click', 'keydown'].forEach((t) => document.addEventListener(t, revive, { capture: true, passive: true }));
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && this.started) this.unlock().then(() => this.check()); });
     // Music loaded in the background may arrive after the player pressed start.
     game.cache.audio.events.on('add', (cache, key) => {
       if (this.pendingMusic && this.pendingMusic.key === key) {
@@ -68,10 +94,72 @@ class SoundManager {
     return s?.destination || this.ctx?.destination || null;
   }
 
-  /** Call from any user gesture. Safe to call repeatedly. */
-  unlock() {
+  /** Is the audio clock actually running (not suspended / interrupted)? */
+  get running() {
     const ctx = this.ctx;
-    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return !ctx || ctx.state === 'running';
+  }
+
+  /**
+   * Call from any user gesture. Safe to call repeatedly. Resumes a suspended
+   * or (iOS) interrupted context and asks iOS to treat the game's sound as
+   * media playback, so the ring/silent switch does not mute Web Audio.
+   */
+  unlock() {
+    this._mediaSession();
+    const ctx = this.ctx;
+    if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') {
+      return ctx.resume().catch((e) => console.warn('[audio] could not resume:', e?.message || e));
+    }
+    return Promise.resolve();
+  }
+
+  _mediaSession() {
+    if (this._session) return;
+    this._session = true;
+    try {
+      // iOS 17+ / Safari 17+: Web Audio as media playback (plays in silent mode)
+      if (navigator.audioSession) { navigator.audioSession.type = 'playback'; return; }
+    } catch { /* not allowed here */ }
+    if (!isIOS()) return;
+    // older iOS: a silent looping media element (started in this gesture)
+    // switches the audio session to playback for the whole page
+    try {
+      const a = document.createElement('audio');
+      a.setAttribute('x-webkit-airplay', 'deny');
+      a.loop = true;
+      a.src = silentWavUrl();
+      a.play().catch((e) => console.warn('[audio] silent-mode workaround unavailable:', e?.message || e));
+      this._silentEl = a;
+    } catch { /* ignore */ }
+  }
+
+  /** Something keeps the guest from hearing the game (not a chosen mute). */
+  onProblem(fn) { this.problemListeners.add(fn); }
+
+  /** After start / return to the page: report whether sound is actually working. */
+  check() {
+    if (!this.started || this.muted) { this.problemListeners.forEach((fn) => fn(null)); return; }
+    let problem = null;
+    if (!this.running) problem = 'suspended';
+    else if (this.musicError) problem = 'music';
+    else if (this.wanted && this.music && !this.music.isPlaying && !this.music.isPaused) problem = 'stopped';
+    if (problem) console.warn('[audio] not playing:', problem);
+    this.problemListeners.forEach((fn) => fn(problem));
+  }
+
+  /** The guest tapped "bật âm thanh": try everything again (inside that gesture). */
+  retry() {
+    this.unlock();
+    if (this.musicError && this.wanted) {
+      this.musicError = null;
+      const def = this.musicDefs[this.wanted.key];
+      if (def) { this._loading?.delete(def.key); this.preloadMusic(this._scene, def); }
+      this.pendingMusic = this.wanted;
+    } else if (this.wanted && (!this.music || (!this.music.isPlaying && !this.music.isPaused))) {
+      this.playMusic(this.wanted.key, this.wanted.opts);
+    }
+    return this.unlock().then(() => this.check());
   }
 
   onChange(fn) {
@@ -99,6 +187,8 @@ class SoundManager {
    */
   preloadMusic(scene, def) {
     this._loading = this._loading || new Set();
+    this.musicDefs[def.key] = def;
+    this._scene = scene;
     if (scene.cache.audio.exists(def.key) || this._loading.has(def.key)) return;
     const ctx = this.ctx;
     if (!ctx) {
@@ -119,7 +209,12 @@ class SoundManager {
         this.loopRegions[def.key] = SoundManager.audibleRegion(audioBuffer);
         this.game.cache.audio.add(def.key, audioBuffer);
       })
-      .catch((e) => console.warn('[audio] music unavailable:', e?.message || e))
+      .catch((e) => {
+        // never silently: the guest gets a small "bật âm thanh" button to retry
+        console.warn('[audio] music unavailable:', e?.message || e);
+        this.musicError = e || new Error('music');
+        this.check();
+      })
       .finally(() => this._loading.delete(def.key));
   }
 
@@ -152,6 +247,7 @@ class SoundManager {
     if (!this.game) return;
     const { fadeIn = 2500 } = opts;
     const volume = (opts.volume ?? 0.55) * this.musicVolume;
+    this.wanted = { key, opts };
     if (this.music && this.music.key === key && this.music.isPlaying) return;
 
     if (!this.game.cache.audio.exists(key)) {

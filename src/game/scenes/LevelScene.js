@@ -187,6 +187,7 @@ export class LevelScene extends Phaser.Scene {
       onPrev: () => this.goPrev(),
       onGo: (i) => this.goTo(i),
     });
+    this.tapHint = document.getElementById('tap-hint');
     this.infoBtn = document.getElementById('info-btn');
     this.infoBtn?.addEventListener('click', () => { soundManager.sfx('select'); this.quick.open(this.infoBtn); });
 
@@ -972,13 +973,24 @@ export class LevelScene extends Phaser.Scene {
       const h = this.hudBox;
       return h && x >= h.x - 4 && x <= h.x + h.w + 4 && y >= h.y - 6 && y <= h.y + h.h + 6;
     };
+    // ONE tap handler for the game layer (mouse click or finger tap): the
+    // interactive things inside the canvas first, otherwise "next page".
+    // (Real buttons — music, THIỆP, ▲●▼, Maps, RSVP, photos — sit above this
+    // layer and take their own taps; the info card lets taps through to it.)
+    // Only 'click' is used (no touchend twin), a swipe never counts as a tap,
+    // and taps only act when the page is at rest.
     el.addEventListener('click', (e) => {
-      if (!this.introDone || this.photos.isOpen || this.play) return;
+      if (!this.introDone || this.photos.isOpen || this.play || this.fading || this.photoCoins.some((c) => c.busy)) return;
+      if (this.nav.justSwiped()) return; // the tail of a swipe, not a tap
       if (onHud(e)) { soundManager.sfx('select'); this.photos.openGallery(false); return; }
       const w = toWorld(e);
       const c = hit(w);
       if (c) { this.collectPhotoCoin(c); return; }
-      if (w.x >= CAL.x && w.x <= CAL.x + CAL.w && w.y >= CAL.y && w.y <= CAL.y + CAL.h) this.replayCalendar();
+      if (w.x >= CAL.x && w.x <= CAL.x + CAL.w && w.y >= CAL.y && w.y <= CAL.y + CAL.h && this.b >= this.bCalDone) {
+        this.replayCalendar();
+        return;
+      }
+      this.tapNext();
     });
     el.addEventListener('mousemove', (e) => {
       el.style.cursor = this.introDone && (hit(toWorld(e)) || onHud(e)) ? 'pointer' : '';
@@ -1062,11 +1074,14 @@ export class LevelScene extends Phaser.Scene {
   // ================================================================ start (scroll right away)
   /** BẮT ĐẦU pressed (a user gesture, so sound may start now). */
   start() {
-    soundManager.unlock();
+    soundManager.started = true;
+    const resumed = soundManager.unlock(); // inside the BẮT ĐẦU gesture (iOS needs this)
     soundManager.sfx('start');
     const music = AUDIO_KEYS.music[MAIN_MUSIC];
     soundManager.playMusic(music.key, { volume: music.volume ?? 0.4, fadeIn: 1200 });
     showMusicToggle();
+    // if the browser still refuses, a small "bật âm thanh" button appears
+    resumed.then(() => soundManager.check());
   }
 
   /** The intro has landed them on the first platform: the scroll-driven game takes over. */
@@ -1206,7 +1221,7 @@ export class LevelScene extends Phaser.Scene {
   navState() {
     if (!this.introDone) return 'intro';
     if (editingText()) return 'keyboard-open';
-    if (this.photos.isOpen || this.quick?.isOpen) return 'modal-open';
+    if (this.photos.isOpen || this.quick?.isOpen || this.photoCoins?.some((c) => c.busy)) return 'modal-open'; // (a coin flipping counts: its photo is about to open)
     return this.play || this.fading ? 'transitioning' : 'idle';
   }
 
@@ -1214,6 +1229,12 @@ export class LevelScene extends Phaser.Scene {
   canNavigate() {
     const st = this.navState();
     return st === 'idle' || (st === 'transitioning' && !this.fading);
+  }
+
+  /** A tap on an empty part of the game: next page, only when at rest (never skips). */
+  tapNext() {
+    if (this.navState() !== 'idle' || this.calReplay || this.time.now < (this.skipGuard || 0)) return;
+    this.goNext();
   }
 
   goNext() {
@@ -1388,6 +1409,9 @@ export class LevelScene extends Phaser.Scene {
       }
       // between transitions b stays put: the scene settles, only idle loops move
       this.render(this.b, delta, false);
+      // "▼ CHẠM HOẶC VUỐT ĐỂ TIẾP TỤC" only while a tap/swipe would do something
+      const hint = this.screen < 3 && this.navState() === 'idle' && !this.calReplay && !this.photos.isOpen;
+      if (this.tapHint && this.tapHint.hidden === hint) this.tapHint.hidden = !hint;
     } else this.intro?.update(time);
     this.ambient(time);
   }

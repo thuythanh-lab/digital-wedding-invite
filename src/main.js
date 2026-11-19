@@ -52,6 +52,7 @@ async function boot() {
 
   const game = new Phaser.Game(createGameConfig(layout, scenes));
   window.__game = game; // handy for debugging in the browser console
+  if (import.meta.env.DEV) window.__sound = soundManager; // dev-only, for audio tests
 
   viewport.on('change', (l) => {
     game.scale.resize(l.pixelW, l.pixelH);
@@ -60,6 +61,13 @@ async function boot() {
 
   soundManager.attach(game);
   new MusicToggle(document.getElementById('music-toggle'), soundManager);
+  // small, non-intrusive "bật âm thanh" button if the browser keeps sound off
+  const soundHint = document.getElementById('sound-hint');
+  if (soundHint) {
+    soundManager.onProblem((problem) => { soundHint.hidden = !problem; });
+    soundHint.addEventListener('pointerdown', (e) => e.stopPropagation());
+    soundHint.addEventListener('click', (e) => { e.stopPropagation(); soundManager.retry(); });
+  }
 }
 
 /**

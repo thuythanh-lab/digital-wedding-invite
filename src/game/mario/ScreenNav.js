@@ -39,6 +39,8 @@ export class ScreenNav {
       const dy = t.clientY - this.ts.y; const dx = t.clientX - this.ts.x;
       const slow = performance.now() - this.ts.t > 1000;
       this.ts = null;
+      // any real finger movement means "not a tap" (the click that may follow is ignored)
+      if (Math.hypot(dx, dy) > 10) this.lastMove = performance.now();
       if (Math.abs(dy) < 40 || Math.abs(dy) < Math.abs(dx) * 1.2 || (slow && Math.abs(dy) < 90)) return;
       if (dy < 0) this.onNext(); else this.onPrev();
     }, { passive: true });
@@ -82,6 +84,11 @@ export class ScreenNav {
     });
     this.prevBtn.addEventListener('click', () => this.enabled && this.onPrev());
     this.nextBtn.addEventListener('click', () => this.enabled && this.onNext());
+  }
+
+  /** True right after a finger moved (swipe / drag): the following click is not a tap. */
+  justSwiped() {
+    return performance.now() - (this.lastMove || -1e9) < 450;
   }
 
   enable(on) {
