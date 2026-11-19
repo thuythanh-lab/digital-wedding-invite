@@ -11,7 +11,7 @@
     <meta name="format-detection" content="telephone=no" />
     <meta name="description" content="Minh & Thủy — 24.12.2026. Cùng chơi và nhận thiệp cưới!" />
     <meta property="og:title" content="Minh & Thủy · 24.12.2026" />
-    <meta property="og:description" content="Thiệp mời cưới — cuộn để chơi cùng cô dâu chú rể!" />
+    <meta property="og:description" content="Thiệp mời cưới — chạm hoặc vuốt để xem cùng cô dâu chú rể!" />
     <title>Minh &amp; Thủy · 24.12.2026</title>
   </head>
   <body>
@@ -55,7 +55,7 @@
         </button>
 
         <!-- Scroll-to-play: this transparent layer scrolls; the level follows it. -->
-        <div id="scroller" class="is-locked" tabindex="0" aria-label="Cuộn để chơi">
+        <div id="scroller" class="is-locked" tabindex="0" aria-label="Chạm hoặc vuốt để xem">
           <div id="scroll-spacer"></div>
         </div>
 
@@ -79,7 +79,7 @@
         <button id="sound-hint" type="button" hidden>🔊 BẬT ÂM THANH</button>
 
         <!-- Tap or swipe: shown only while the page is at rest. -->
-        <p id="tap-hint" aria-hidden="true" hidden><span class="th-arrow">▼</span> CHẠM HOẶC VUỐT ĐỂ TIẾP TỤC</p>
+        <p id="tap-hint" aria-hidden="true" hidden><span class="th-arrow">▼</span> CHẠM HOẶC VUỐT ĐỂ XEM</p>
 
         <!-- Screen navigation fallback (swipe / wheel / keys do the same). -->
         <nav id="screen-nav" aria-label="Chuyển màn" hidden>
@@ -106,7 +106,8 @@
               <img alt="" decoding="async" hidden />
               <div class="pm-missing" hidden>
                 <span class="pm-cam" aria-hidden="true">📷</span>
-                <span>Ảnh sẽ được cập nhật sớm!</span>
+                <span>Chưa tải được ảnh. Kiểm tra mạng rồi thử lại nhé!</span>
+                <button type="button" class="px-btn pm-retry">THỬ LẠI</button>
               </div>
             </div>
             <button type="button" class="px-btn pm-close">ĐÓNG</button>

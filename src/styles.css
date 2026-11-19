@@ -660,7 +660,8 @@ body.is-framed #frame {
 }
 #venue-card[hidden] { display: none; }
 
-/* "▼ CHẠM HOẶC VUỐT ĐỂ TIẾP TỤC" — small, at the bottom, clear of the ▲● ▼ column */
+/* THE navigation hint "▼ CHẠM HOẶC VUỐT ĐỂ XEM" (one component, every page that a
+   tap/swipe advances) — small, fixed to the screen bottom, clear of the ▲●▼ column */
 #tap-hint {
   position: absolute;
   z-index: 11;

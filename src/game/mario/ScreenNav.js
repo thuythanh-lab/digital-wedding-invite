@@ -15,12 +15,14 @@
  * that moved is never a click.
  */
 export class ScreenNav {
-  constructor({ el, count, labels, onNext, onPrev, onGo }) {
+  constructor({ el, count, labels, onNext, onPrev, onGo, onTap }) {
     this.el = el;
     this.count = count;
     this.onNext = onNext;
     this.onPrev = onPrev;
     this.onGo = onGo;
+    this.onTap = onTap;
+    this.lastTouchEnd = -1e9;
     this.enabled = false;
     this.acc = 0;
     this.lastWheel = 0;
@@ -33,17 +35,30 @@ export class ScreenNav {
     }, { passive: true });
     // no native scrolling / bounce on the game layer (pinch-zoom stays allowed via CSS)
     el.addEventListener('touchmove', (e) => { if (this.enabled && e.cancelable) e.preventDefault(); }, { passive: false });
+    // A finger gesture is decided ONCE, here: a swipe (one page) or a tap
+    // (handled right away, without waiting for — or also getting — the
+    // browser's emulated click, which is cancelled).
     el.addEventListener('touchend', (e) => {
       if (!this.enabled || !this.ts) return;
       const t = e.changedTouches[0];
       const dy = t.clientY - this.ts.y; const dx = t.clientX - this.ts.x;
-      const slow = performance.now() - this.ts.t > 1000;
+      const dt = performance.now() - this.ts.t;
+      const slow = dt > 1000;
       this.ts = null;
-      // any real finger movement means "not a tap" (the click that may follow is ignored)
-      if (Math.hypot(dx, dy) > 10) this.lastMove = performance.now();
-      if (Math.abs(dy) < 40 || Math.abs(dy) < Math.abs(dx) * 1.2 || (slow && Math.abs(dy) < 90)) return;
-      if (dy < 0) this.onNext(); else this.onPrev();
-    }, { passive: true });
+      this.lastTouchEnd = performance.now();
+      const dist = Math.hypot(dx, dy);
+      const swipe = !(Math.abs(dy) < 40 || Math.abs(dy) < Math.abs(dx) * 1.2 || (slow && Math.abs(dy) < 90));
+      if (swipe) { if (dy < 0) this.onNext(); else this.onPrev(); return; }
+      if (dist <= 24 && dt < 800) { // a tap (a little finger wobble is fine)
+        if (e.cancelable) e.preventDefault();
+        this.onTap?.(t.clientX, t.clientY, dist);
+      }
+    }, { passive: false });
+    // mouse (desktop): a click is a tap; clicks that only echo a touch are ignored
+    el.addEventListener('click', (e) => {
+      if (!this.enabled || performance.now() - this.lastTouchEnd < 800) return;
+      this.onTap?.(e.clientX, e.clientY, 0);
+    });
 
     el.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -84,11 +99,6 @@ export class ScreenNav {
     });
     this.prevBtn.addEventListener('click', () => this.enabled && this.onPrev());
     this.nextBtn.addEventListener('click', () => this.enabled && this.onNext());
-  }
-
-  /** True right after a finger moved (swipe / drag): the following click is not a tap. */
-  justSwiped() {
-    return performance.now() - (this.lastMove || -1e9) < 450;
   }
 
   enable(on) {

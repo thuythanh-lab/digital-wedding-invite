@@ -43,6 +43,6 @@ export const STRINGS = {
     musicOn: 'Tắt nhạc',
     musicOff: 'Bật nhạc',
     loading: 'Đang mở trang sách...',
-    tapHint: 'Chạm để tiếp tục',
+    tapHint: 'CHẠM HOẶC VUỐT ĐỂ XEM',
   },
 };

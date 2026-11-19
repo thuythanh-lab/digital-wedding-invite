@@ -7,8 +7,9 @@ import { MARIO_TEXT as T } from '../config/mario.vi.js';
  * Put the real photos in  public/assets/photos/  as
  *   wedding-photo-01.jpg · wedding-photo-02.jpg · wedding-photo-03.jpg
  * (≈1200 px on the long side, JPEG quality ~80 keeps each under ~250 KB).
- * Photos are only downloaded when a guest opens one. Until a file exists the
- * viewer shows an honest "coming soon" card — never a stand-in picture.
+ * The three photos are preloaded once the game is running (so a coin opens
+ * its photo at once). If one cannot be loaded, the viewer says so and offers
+ * "THỬ LẠI" — never a silent failure, never a stand-in picture.
  *
  * Discovery is remembered in this browser only (localStorage) and is never
  * sent to the RSVP backend.
@@ -53,8 +54,33 @@ export class PhotoBook {
       // Taps on the dimmed backdrop never reach the game.
       el.addEventListener('pointerdown', (e) => e.stopPropagation());
     });
+    this.retryBtn = this.modal.querySelector('.pm-retry');
     this.img.addEventListener('load', () => { this.img.hidden = false; this.missing.hidden = true; });
-    this.img.addEventListener('error', () => { this.img.hidden = true; this.missing.hidden = false; });
+    this.img.addEventListener('error', () => {
+      if (!this.img.getAttribute('src')) return;
+      console.warn('[photos] could not load', this.img.getAttribute('src'));
+      this.img.hidden = true; this.missing.hidden = false;
+    });
+    this.retryBtn?.addEventListener('click', () => {
+      const id = this.current;
+      if (!id) return;
+      soundManager.sfx('select');
+      this.missing.hidden = true;
+      this.img.removeAttribute('src');
+      this.img.src = `${PHOTOS[id - 1].src}?retry=${Date.now()}`;
+    });
+    this.cache = [];
+  }
+
+  /** Download the three photos in the background (the browser cache keeps them). */
+  preload() {
+    if (this.cache.length) return;
+    this.cache = PHOTOS.map((p) => {
+      const im = new Image();
+      im.decoding = 'async';
+      im.src = p.src;
+      return im;
+    });
   }
 
   get count() { return this.found.size; }
@@ -77,13 +103,15 @@ export class PhotoBook {
 
   show(id, heading) {
     const p = PHOTOS[id - 1];
+    this.current = id;
     this.title.textContent = heading;
     this.sub.textContent = T.photoMoment(pad(id));
     this.img.hidden = true;
     this.missing.hidden = true;
     this.img.alt = T.photoMoment(pad(id));
     this.img.removeAttribute('src');
-    this.img.src = p.src; // lazy: requested only now
+    this.img.src = p.src; // usually already preloaded (instant)
+    if (this.img.complete && this.img.naturalWidth) { this.img.hidden = false; }
     this.lock(true);
     this.modal.hidden = false;
     this.modal.querySelector('.pm-close').focus({ preventScroll: true });

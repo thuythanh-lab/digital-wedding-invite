@@ -186,6 +186,7 @@ export class LevelScene extends Phaser.Scene {
       onNext: () => this.goNext(),
       onPrev: () => this.goPrev(),
       onGo: (i) => this.goTo(i),
+      onTap: (x, y, dist) => this.onTap(x, y, dist),
     });
     this.tapHint = document.getElementById('tap-hint');
     this.infoBtn = document.getElementById('info-btn');
@@ -958,63 +959,87 @@ export class LevelScene extends Phaser.Scene {
     });
   }
 
+  /** Screen point (CSS px) → world point, with the camera as it is right now. */
+  toWorld(clientX, clientY) {
+    const r = this.scroller.el.getBoundingClientRect();
+    const k = this.layout.cssToLogical;
+    return { x: (clientX - r.left) * k, y: this.cameras.main.scrollY + (clientY - r.top) * k, k };
+  }
+
+  /**
+   * The golden photo coin under a screen point, if any. Touch target ≈ 52 CSS
+   * px across (the coin itself stays its size); it follows the camera, so it
+   * works while the camera is still moving.
+   */
+  coinAt(clientX, clientY) {
+    const w = this.toWorld(clientX, clientY);
+    const R = Math.max(30, 26 * w.k);
+    let best = null; let bd = Infinity;
+    this.photoCoins.forEach((c) => {
+      if (c.found || c.busy || !c.s.visible) return;
+      const d = Math.hypot(c.x - w.x, c.y - w.y);
+      if (d < R && d < bd) { best = c; bd = d; }
+    });
+    return best;
+  }
+
+  onHud(clientX, clientY) {
+    const r = this.scroller.el.getBoundingClientRect();
+    const k = this.layout.cssToLogical;
+    const x = (clientX - r.left) * k; const y = (clientY - r.top) * k;
+    const h = this.hudBox;
+    return h && x >= h.x - 4 && x <= h.x + h.w + 4 && y >= h.y - 6 && y <= h.y + h.h + 6;
+  }
+
+  /**
+   * THE tap router for the game layer (ScreenNav decides tap vs swipe once per
+   * gesture, so a tap is never also a click or a swipe). Priority:
+   *   1. golden photo coins — ALWAYS, even while characters / camera move
+   *   2. the HUD (opens the photo gallery)
+   *   3. the revealed calendar (replays its flip)
+   *   4. otherwise: next page, only when the page is at rest
+   * (Real buttons — music, THIỆP, ▲●▼, Maps, RSVP, photo viewer — sit above
+   * this layer and take their own taps.)
+   */
+  onTap(clientX, clientY, dist = 0) {
+    if (!this.introDone || this.photos.isOpen) return;
+    const c = this.coinAt(clientX, clientY);
+    if (c) { this.collectPhotoCoin(c); return; }
+    if (this.photoCoins.some((p) => p.busy)) return;
+    if (this.onHud(clientX, clientY)) { soundManager.sfx('select'); this.photos.openGallery(false); return; }
+    if (dist > 10) return; // a wobbly touch counts only for coins
+    const w = this.toWorld(clientX, clientY);
+    if (!this.play && w.x >= CAL.x && w.x <= CAL.x + CAL.w && w.y >= CAL.y && w.y <= CAL.y + CAL.h && this.b >= this.bCalDone) {
+      this.replayCalendar();
+      return;
+    }
+    this.tapNext();
+  }
+
   setupTaps() {
     const el = this.scroller.el;
-    const toWorld = (e) => {
-      const r = el.getBoundingClientRect();
-      const k = this.layout.cssToLogical;
-      return { x: (e.clientX - r.left) * k, y: this.cameras.main.scrollY + (e.clientY - r.top) * k };
-    };
-    const hit = (p) => this.photoCoins.find((c) => !c.found && !c.busy && Math.hypot(c.x - p.x, c.y - p.y) < 30);
-    const onHud = (e) => {
-      const r = el.getBoundingClientRect();
-      const k = this.layout.cssToLogical;
-      const x = (e.clientX - r.left) * k; const y = (e.clientY - r.top) * k;
-      const h = this.hudBox;
-      return h && x >= h.x - 4 && x <= h.x + h.w + 4 && y >= h.y - 6 && y <= h.y + h.h + 6;
-    };
-    // ONE tap handler for the game layer (mouse click or finger tap): the
-    // interactive things inside the canvas first, otherwise "next page".
-    // (Real buttons — music, THIỆP, ▲●▼, Maps, RSVP, photos — sit above this
-    // layer and take their own taps; the info card lets taps through to it.)
-    // Only 'click' is used (no touchend twin), a swipe never counts as a tap,
-    // and taps only act when the page is at rest.
-    el.addEventListener('click', (e) => {
-      if (!this.introDone || this.photos.isOpen || this.play || this.fading || this.photoCoins.some((c) => c.busy)) return;
-      if (this.nav.justSwiped()) return; // the tail of a swipe, not a tap
-      if (onHud(e)) { soundManager.sfx('select'); this.photos.openGallery(false); return; }
-      const w = toWorld(e);
-      const c = hit(w);
-      if (c) { this.collectPhotoCoin(c); return; }
-      if (w.x >= CAL.x && w.x <= CAL.x + CAL.w && w.y >= CAL.y && w.y <= CAL.y + CAL.h && this.b >= this.bCalDone) {
-        this.replayCalendar();
-        return;
-      }
-      this.tapNext();
-    });
     el.addEventListener('mousemove', (e) => {
-      el.style.cursor = this.introDone && (hit(toWorld(e)) || onHud(e)) ? 'pointer' : '';
+      el.style.cursor = this.introDone && (this.coinAt(e.clientX, e.clientY) || this.onHud(e.clientX, e.clientY)) ? 'pointer' : '';
     });
   }
 
+  /**
+   * A golden coin was tapped: the photo opens at once (any running page
+   * animation simply pauses underneath it, see update()); the coin gives a
+   * quick pop + sparkle and is then gone. One tap, one viewer.
+   */
   collectPhotoCoin(c) {
+    if (c.busy || c.found) return;
     c.busy = true;
     soundManager.unlock();
     soundManager.sfx('photoCoin');
-    const done = () => {
-      c.found = true;
-      c.busy = false;
-      c.s.setVisible(false);
-      c.sp.setVisible(false);
-      this.burst(c.x, c.y, 'sparkle', 6);
-      this.photos.discover(c.id);
-    };
-    if (this.reducedMotion) { done(); return; }
+    this.burst(c.x, c.y, 'sparkle', 6);
+    c.sp.setVisible(false);
     c.s.setDepth(DEPTH.fx + 5);
-    const tw = c.id === 2
-      ? { targets: c.s, y: c.y - 26, duration: 220, yoyo: true, ease: 'Quad.easeOut' }
-      : { targets: c.s, scaleX: { from: ART, to: -ART }, duration: 120, repeat: 3, yoyo: true };
-    this.tweens.add({ ...tw, onComplete: done });
+    const finish = () => { c.found = true; c.busy = false; c.s.setVisible(false); };
+    this.photos.discover(c.id); // the viewer is up now
+    if (this.reducedMotion) { finish(); return; }
+    this.tweens.add({ targets: c.s, scale: ART * 1.6, alpha: 0, duration: 260, ease: 'Quad.easeOut', onComplete: finish });
   }
 
   setPhotoHud(n) {
@@ -1047,13 +1072,6 @@ export class LevelScene extends Phaser.Scene {
     this.texts.push(txt, photo);
     this.hud = { bg, heart, txt, coin, photo };
     this.setHudVisible(false); // shown once the game starts
-    // scroll hint: in the open sky between the first platform and the calendar,
-    // so it never covers the date
-    this.hint = makeText(this, WORLD_W / 2, Y0 + 72, T.scrollHint, {
-      fontFamily: FONT_BODY, fontSize: '22px', color: '#fff7e6', backgroundColor: '#3b2620d9',
-      padding: { left: 10, right: 10, top: 4, bottom: 2 },
-    }).setOrigin(0.5, 0.5).setDepth(DEPTH.hud - 1).setVisible(false);
-    this.texts.push(this.hint);
     this.layoutHud();
   }
 
@@ -1086,6 +1104,7 @@ export class LevelScene extends Phaser.Scene {
 
   /** The intro has landed them on the first platform: the scroll-driven game takes over. */
   beginPlay() {
+    this.photos.preload(); // so a coin's photo opens instantly
     if (this.infoBtn) this.infoBtn.hidden = false;
     this.setHudVisible(true);
     this.b = 0;
@@ -1401,6 +1420,14 @@ export class LevelScene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.introDone) {
+      // a photo opened mid-animation: hold the animation exactly where it is
+      // (and carry on from that very point once the photo is closed)
+      if (this.play) {
+        if (this.photos.isOpen) {
+          if (this.play.hold == null) this.play.hold = this.play.k;
+          this.play.t0 = time - this.play.hold * this.play.ms;
+        } else this.play.hold = null;
+      }
       if (this.play) {
         const k = Math.min(1, (time - this.play.t0) / this.play.ms);
         this.play.k = k;
@@ -1409,7 +1436,8 @@ export class LevelScene extends Phaser.Scene {
       }
       // between transitions b stays put: the scene settles, only idle loops move
       this.render(this.b, delta, false);
-      // "▼ CHẠM HOẶC VUỐT ĐỂ TIẾP TỤC" only while a tap/swipe would do something
+      // the ONE navigation hint (#tap-hint, "▼ CHẠM HOẶC VUỐT ĐỂ XEM"), fixed to the
+      // screen, shown only while a tap/swipe would do something
       const hint = this.screen < 3 && this.navState() === 'idle' && !this.calReplay && !this.photos.isOpen;
       if (this.tapHint && this.tapHint.hidden === hint) this.tapHint.hidden = !hint;
     } else this.intro?.update(time);
@@ -1508,7 +1536,6 @@ export class LevelScene extends Phaser.Scene {
     if (b >= this.bR - 6 && !this.answer) this.dialog.show();
     else if (b < this.bR - 30 || this.answer) this.dialog.hide();
     this.endActions.hidden = !(this.answer && b > this.bEnd - 20);
-    this.hint.setVisible(this.introDone && this.screen === 0 && !this.play && b < 1 && (this.reducedMotion || (this.time.now % 1600) < 1100));
     this.placeVenueCard(b);
   }
 

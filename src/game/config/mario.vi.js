@@ -9,7 +9,7 @@ export const MARIO_TEXT = {
   // Opening
   greeting: (n) => (n ? `Gửi ${n},` : 'Gửi bạn,'),
   inviteLine: 'Có một lời mời dành cho bạn!',
-  scrollHint: '↑  VUỐT LÊN ĐỂ TIẾP TỤC',
+  scrollHint: 'CHẠM HOẶC VUỐT ĐỂ XEM', // (shown by #tap-hint in index.html)
   // Title screen — the name is shown exactly as given in the link (no added
   // titles/honorifics), upper-cased in Vietnamese.
   titleQuestion: (n) => `${n.toLocaleUpperCase('vi')}, SẴN SÀNG CHƯA?`,
