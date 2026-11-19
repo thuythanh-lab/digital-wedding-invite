@@ -39,8 +39,11 @@ export const MARIO_TEXT = {
   rsvpSending: 'Đang gửi...',
   rsvpError: 'Chưa gửi được phản hồi. Bạn thử lại nhé!',
   // shown in the RSVP box once the backend has confirmed the answer
-  rsvpSavedYes: ['ĐÃ XÁC NHẬN!', 'Hẹn gặp bạn tại Seasons!'],
-  rsvpSavedNo: ['ĐÃ GHI NHẬN!', 'Cảm ơn bạn đã phản hồi!'],
+  rsvpSavedYes: ['HẸN GẶP BẠN NHÉ!', ''],
+  rsvpSavedNo: ['CẢM ƠN BẠN ĐÃ PHẢN HỒI!', ''],
+  infoPill: 'XEM THÔNG TIN THIỆP',
+  infoPillSub: '24.12.2026 · 11:00 · SEASONS, HÀ NỘI',
+  infoFold: 'THU GỌN ▼',
   rsvpRetryTag: 'THỬ LẠI',
   rsvpNotConfigured: 'Hệ thống RSVP chưa sẵn sàng. Bạn báo Minh & Thủy giúp nhé!',
 

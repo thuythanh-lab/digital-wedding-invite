@@ -660,6 +660,51 @@ body.is-framed #frame {
 }
 #venue-card[hidden] { display: none; }
 
+/* after the RSVP the big card folds down and away (0.6 s), revealing the couple;
+   its content stays, so "XEM THÔNG TIN THIỆP" unfolds it again */
+#venue-card {
+  transform-origin: 50% 100%;
+  transition: scale 0.6s cubic-bezier(0.45, 0, 0.55, 1), translate 0.6s cubic-bezier(0.45, 0, 0.55, 1),
+    opacity 0.6s ease, visibility 0s linear 0s;
+}
+#venue-card.is-folded {
+  scale: 1 0.06;
+  translate: 0 46px;
+  opacity: 0 !important;
+  visibility: hidden;
+  transition: scale 0.6s cubic-bezier(0.45, 0, 0.55, 1), translate 0.6s cubic-bezier(0.45, 0, 0.55, 1),
+    opacity 0.45s ease 0.15s, visibility 0s linear 0.6s;
+}
+#venue-card.is-folded .ic-map { pointer-events: none; }
+#venue-card .ic-fold { pointer-events: auto; display: block; margin: 8px auto 0; font-size: 15px; padding: 5px 12px 4px; }
+#venue-card .ic-fold[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { #venue-card, #venue-card.is-folded { transition: none; } }
+
+/* compact "XEM THÔNG TIN THIỆP" control (final page, after the RSVP) */
+#info-pill {
+  position: absolute;
+  z-index: 13;
+  left: 50%;
+  top: calc(var(--safe-top, 0px) + 58px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 14px 5px;
+  border: 3px solid var(--ink, #3b2620);
+  border-radius: 6px;
+  background: #f8f0dd;
+  color: #3b2620;
+  box-shadow: 0 3px 0 rgba(59, 38, 32, 0.45);
+  font-family: 'VT323', monospace;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#info-pill strong { font-size: 18px; font-weight: 400; letter-spacing: 0.03em; color: #8c4430; }
+#info-pill span { font-size: 15px; }
+#info-pill[hidden] { display: none; }
+
 /* THE navigation hint "▼ CHẠM HOẶC VUỐT ĐỂ XEM" (one component, every page that a
    tap/swipe advances) — small, fixed to the screen bottom, clear of the ▲●▼ column */
 #tap-hint {

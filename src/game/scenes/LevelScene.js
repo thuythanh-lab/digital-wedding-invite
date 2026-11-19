@@ -466,7 +466,7 @@ export class LevelScene extends Phaser.Scene {
     H.holdUntil(bEnd + 40, { face: 'down' });
     M.holdUntil(bEnd + 40, { face: 'down' });
     cues.push([bFlag0 + 2, 'flowerFix']);
-    cues.push([bTogether + 2, 'victory']);
+    cues.push([bTogether + 2, 'victory'], [bTogether + 3, 'fx:hearts']);
     cues.push([bTurtle0 + 4, 'turtle']);
     cues.push([bCross, 'check']); // the turtle's tiny victory
     beats.push(new Beat('finishLine', bR + 30, bEnd));
@@ -684,6 +684,17 @@ export class LevelScene extends Phaser.Scene {
     this.swayers.push(this.img(176, YV + 1, 'flowers', DEPTH.front)); // photo coin 2 peeks out behind these, at the tree's foot
     this.butterfly = this.add.image(240, YV - 70, 'fly0').setScale(ART).setDepth(DEPTH.fx);
     this.venueCard = fillInfoCard(document.getElementById('venue-card'));
+    // compact info control + the card's own "THU GỌN" (used only after the RSVP)
+    this.cardOpen = false;
+    this.cardFoldBtn = Object.assign(document.createElement('button'), { type: 'button', className: 'px-btn ghost ic-fold', textContent: T.infoFold, hidden: true });
+    this.venueCard.append(this.cardFoldBtn);
+    this.infoPill = document.getElementById('info-pill');
+    this.infoPill.querySelector('strong').textContent = T.infoPill;
+    this.infoPill.querySelector('span').textContent = T.infoPillSub;
+    const stop = (e) => e.stopPropagation();
+    [this.infoPill, this.cardFoldBtn].forEach((b) => { b.addEventListener('pointerdown', stop); b.addEventListener('touchend', stop); });
+    this.infoPill.addEventListener('click', (e) => { e.stopPropagation(); soundManager.sfx('select'); this.cardOpen = true; });
+    this.cardFoldBtn.addEventListener('click', (e) => { e.stopPropagation(); soundManager.sfx('select'); this.cardOpen = false; });
     // the Surprise Box (an original mystery block, not any game's artwork)
     this.box = this.add.image(BOX_X, BOX_Y, 'mysteryBlock').setScale(ART).setDepth(DEPTH.props + 2);
     this.boxCard = this.add.image(BOX_X, BOX_Y - 12, 'inviteCard').setScale(ART).setDepth(DEPTH.props + 1).setVisible(false);
@@ -1267,6 +1278,9 @@ export class LevelScene extends Phaser.Scene {
     if (this.screen >= 3) return;
     this.screen += 1;
     soundManager.unlock();
+    // already answered (this visit or an earlier one): show the settled final
+    // scene — the ending is not replayed and nothing is sent again
+    if (this.screen === 3 && this.answer) { this.fadeJump(this.bEnd); return; }
     this.startPlay(this.b, this.stopB(this.screen), this.screen);
   }
 
@@ -1315,10 +1329,17 @@ export class LevelScene extends Phaser.Scene {
   /** Called only after the backend confirmed. From the quick view (quiet) the game keeps its place. */
   onRsvpConfirmed(record, { quiet = false } = {}) {
     this.answer = record;
+    this.cardOpen = false;
     soundManager.sfx('confirm');
     if (quiet || !this.introDone || this.screen !== 3) return;
-    // stay on screen 4 and play the ending (celebration, flag, wave, turtle)
-    this.time.delayedCall(350, () => { if (!this.play) this.startPlay(this.b, this.bEnd, 3); });
+    // ONE post-RSVP timeline (the RSVP box has already shown "HẸN GẶP BẠN NHÉ!" /
+    // "CẢM ƠN BẠN ĐÃ PHẢN HỒI!" for ~1.3 s): the info card folds away now (it
+    // follows this.answer, 0.6 s), THEN the celebration starts on a clear stage.
+    this._endingTimer?.remove();
+    this._endingTimer = this.time.delayedCall(this.reducedMotion ? 0 : 650, () => {
+      this._endingTimer = null;
+      if (!this.play && this.answer && this.screen === 3) this.startPlay(this.b, this.bEnd, 3);
+    });
   }
 
   setupEndActions() {
@@ -1383,6 +1404,15 @@ export class LevelScene extends Phaser.Scene {
   /** The info card rides with the world (so it scrolls naturally into view at the venue). */
   placeVenueCard(b) {
     const el = this.venueCard;
+    // after a confirmed RSVP (on the final page) the big card folds away so the
+    // couple are the focus; the compact "XEM THÔNG TIN THIỆP" control brings it back
+    if (this.screen !== 3) this.cardOpen = false;
+    const answered = !!this.answer && this.screen === 3 && b >= this.bR - 0.5;
+    const folded = answered && !this.cardOpen;
+    if (el.classList.contains('is-folded') !== folded) el.classList.toggle('is-folded', folded);
+    this.cardFoldBtn.hidden = !(answered && this.cardOpen);
+    const pill = answered && folded && !this.photos.isOpen && !this.fading;
+    if (this.infoPill.hidden === pill) this.infoPill.hidden = !pill;
     const k = this.layout.cssToLogical;
     const yCss = (this.cardWorldY - this.cameras.main.scrollY) / k;
     const fade = ramp(b, this.bSign1, this.bF1); // the box's little card becomes the info card
@@ -1397,6 +1427,7 @@ export class LevelScene extends Phaser.Scene {
     this._cardShown = true;
     el.style.opacity = String(fade);
     el.style.transform = `translate(-50%, ${Math.round(yCss)}px)`;
+
     // after a confirmed RSVP the tag on the card carries the answer
     const tag = WEDDING.eventName;
     if (this.cardTag.textContent !== tag) {
@@ -1767,6 +1798,13 @@ export class LevelScene extends Phaser.Scene {
     if (name === 'dustMinh') this.burst(this.minh.x, this.minh.y - 2, 'dust', 6);
     if (name === 'dustThuy') this.burst(this.thuy.x, this.thuy.y - 2, 'dust', 4);
     if (name === 'tap') this.burst(PIPE_X + 16, PIPE_TOP + 4, 'sparkle', 3); // knock, knock
+    if (name === 'hearts' && !this.reducedMotion) {
+      // a few small hearts float up from the couple (warm for every answer)
+      [[this.minh, -10], [this.thuy, 8], [this.minh, 14], [this.thuy, -14], [this.minh, 2]].forEach(([ch, dx], i) => {
+        const h = this.add.image(ch.x + dx, ch.y - 74, 'heart').setScale(ART).setDepth(DEPTH.fx + 2).setAlpha(0);
+        this.tweens.add({ targets: h, y: h.y - 46, alpha: { from: 1, to: 0 }, duration: 1300, delay: i * 140, ease: 'Sine.easeOut', onComplete: () => h.destroy() });
+      });
+    }
   }
 
   burst(x, y, key, n, hud = false) {
